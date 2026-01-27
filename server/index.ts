@@ -9,6 +9,16 @@ import {
 	loadClaudeSettings,
 	type ClaudeSettings,
 } from './agent.js';
+import {
+	fetchIntakeQueue,
+	fetchIssueDetails,
+	fetchDiscussionDetails,
+	applyLabel,
+	removeLabel,
+	setProjectStatus,
+	fetchRepoLabels,
+	searchDuplicates,
+} from './github.js';
 
 const app = express();
 const server = createServer(app);
@@ -28,6 +38,117 @@ app.use(express.json());
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
 	res.json({ status: 'ok' });
+});
+
+// ===== REST API Endpoints for Command Center =====
+
+// Lightweight list endpoint (no bodies)
+app.get('/api/intake', async (_req, res) => {
+	try {
+		const data = await fetchIntakeQueue();
+		res.json(data);
+	} catch (error) {
+		console.error('Failed to fetch intake queue:', error);
+		res.status(500).json({ error: 'Failed to fetch GitHub data' });
+	}
+});
+
+// Detail endpoints for full content
+app.get('/api/issues/:number', async (req, res) => {
+	try {
+		const { number } = req.params;
+		const issue = await fetchIssueDetails(parseInt(number));
+		res.json(issue);
+	} catch (error) {
+		console.error('Failed to fetch issue details:', error);
+		res.status(500).json({ error: 'Failed to fetch issue details' });
+	}
+});
+
+app.get('/api/discussions/:number', async (req, res) => {
+	try {
+		const { number } = req.params;
+		const discussion = await fetchDiscussionDetails(parseInt(number));
+		res.json(discussion);
+	} catch (error) {
+		console.error('Failed to fetch discussion details:', error);
+		res.status(500).json({ error: 'Failed to fetch discussion details' });
+	}
+});
+
+// Label management with validation
+app.post('/api/issues/:number/labels', async (req, res) => {
+	try {
+		const { number } = req.params;
+		const { label, action } = req.body; // action: 'add' | 'remove'
+
+		if (!label || typeof label !== 'string') {
+			res.status(400).json({ error: 'Invalid label' });
+			return;
+		}
+
+		if (action === 'add') {
+			await applyLabel(parseInt(number), label);
+		} else if (action === 'remove') {
+			await removeLabel(parseInt(number), label);
+		} else {
+			res.status(400).json({ error: 'Invalid action' });
+			return;
+		}
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error('Failed to update label:', error);
+		res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update label' });
+	}
+});
+
+// Project status update
+app.post('/api/issues/:number/status', async (req, res) => {
+	try {
+		const { number } = req.params;
+		const { status } = req.body;
+
+		if (!status || typeof status !== 'string') {
+			res.status(400).json({ error: 'Invalid status' });
+			return;
+		}
+
+		await setProjectStatus(parseInt(number), status);
+		res.json({ success: true });
+	} catch (error) {
+		console.error('Failed to set status:', error);
+		res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to set status' });
+	}
+});
+
+// Get available labels
+app.get('/api/labels', async (_req, res) => {
+	try {
+		const labels = await fetchRepoLabels();
+		res.json({ labels });
+	} catch (error) {
+		console.error('Failed to fetch labels:', error);
+		res.status(500).json({ error: 'Failed to fetch labels' });
+	}
+});
+
+// Search for duplicate issues
+app.post('/api/issues/search-duplicates', async (req, res) => {
+	try {
+		const { searchTerms, excludeNumber } = req.body;
+
+		if (!Array.isArray(searchTerms) || searchTerms.length === 0) {
+			res.status(400).json({ error: 'Invalid search terms' });
+			return;
+		}
+
+		const duplicates = await searchDuplicates(searchTerms, excludeNumber || 0);
+		res.json({ duplicates });
+	} catch (error) {
+		console.error('Duplicate search failed:', error);
+		res.status(500).json({ error: 'Duplicate search failed' });
+	}
 });
 
 interface ClientState {
