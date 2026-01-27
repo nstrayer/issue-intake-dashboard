@@ -1,5 +1,6 @@
 import { QueueItem, ClaudeAnalysis } from '../../types/intake';
 import { useItemDetails } from '../../hooks/useIntakeQueue';
+import { LabelPicker } from '../LabelPicker/LabelPicker';
 import ReactMarkdown from 'react-markdown';
 
 interface SidePanelProps {
@@ -7,10 +8,11 @@ interface SidePanelProps {
   analysis: ClaudeAnalysis | null;
   onClose: () => void;
   onApplyLabel: (label: string) => void;
-  onRequestAnalysis: () => void;
+  onRemoveLabel: (label: string) => void;
+  onRequestAnalysis: (body: string) => void;
 }
 
-export function SidePanel({ item, analysis, onClose, onApplyLabel, onRequestAnalysis }: SidePanelProps) {
+export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel, onRequestAnalysis }: SidePanelProps) {
   // Fetch full details including body when item is selected
   const { body, isLoading: bodyLoading, error: bodyError } = useItemDetails(item);
 
@@ -71,17 +73,15 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRequestAnal
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Labels */}
-        {item.labels.length > 0 && (
+        {/* Labels section - always show for issues */}
+        {item.type === 'issue' && (
           <div className="p-4 border-b border-gray-800">
             <h3 className="text-sm font-medium text-gray-400 mb-2">Labels</h3>
-            <div className="flex gap-1 flex-wrap">
-              {item.labels.map(label => (
-                <span key={label} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-sm">
-                  {label}
-                </span>
-              ))}
-            </div>
+            <LabelPicker
+              currentLabels={item.labels}
+              onApply={onApplyLabel}
+              onRemove={onRemoveLabel}
+            />
           </div>
         )}
 
@@ -109,9 +109,9 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRequestAnal
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-400">Claude Analysis</h3>
-            {!analysis && (
+            {!analysis && !bodyLoading && (
               <button
-                onClick={onRequestAnalysis}
+                onClick={() => onRequestAnalysis(body)}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
               >
                 Analyze

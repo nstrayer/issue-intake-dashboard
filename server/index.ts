@@ -5,6 +5,7 @@ import {
 	runIntakeAnalysis,
 	sendFollowUp,
 	executeQuickAction,
+	analyzeIssue,
 	AuthenticationRequiredError,
 	loadClaudeSettings,
 	type ClaudeSettings,
@@ -148,6 +149,32 @@ app.post('/api/issues/search-duplicates', async (req, res) => {
 	} catch (error) {
 		console.error('Duplicate search failed:', error);
 		res.status(500).json({ error: 'Duplicate search failed' });
+	}
+});
+
+// Claude analysis endpoint
+app.post('/api/issues/:number/analyze', async (req, res) => {
+	const { number } = req.params;
+	const { title, body, labels } = req.body;
+
+	try {
+		const analysis = await analyzeIssue(
+			{
+				number: parseInt(number),
+				title,
+				body,
+				labels: labels || [],
+			},
+			{ claudeSettings }
+		);
+		res.json(analysis);
+	} catch (error) {
+		console.error('Analysis failed:', error);
+		const isAuth = error instanceof AuthenticationRequiredError;
+		res.status(isAuth ? 401 : 500).json({
+			error: error instanceof Error ? error.message : 'Analysis failed',
+			isAuthError: isAuth,
+		});
 	}
 });
 

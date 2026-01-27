@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { INTAKE_SYSTEM_PROMPT, CATCH_UP_PROMPT } from './prompts/intake.js';
+import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisPrompt } from './prompts/analysis.js';
 
 export interface ClaudeSettings {
 	env?: Record<string, string>;
@@ -175,6 +176,64 @@ export async function* executeQuickAction(
 			},
 		})) {
 			yield message;
+		}
+	} catch (error) {
+		if (isAuthError(error)) {
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
+		}
+		throw error;
+	}
+}
+
+export interface AnalysisResult {
+	summary: string;
+	suggestedLabels: string[];
+	duplicateSearchTerms: string[];
+	needsInfo: boolean;
+	draftResponse?: string;
+}
+
+export async function analyzeIssue(
+	issue: { number: number; title: string; body: string; labels: string[] },
+	options: AgentOptions = {}
+): Promise<AnalysisResult> {
+	const { claudeSettings } = options;
+
+	const prompt = buildAnalysisPrompt(issue);
+	let fullResponse = '';
+
+	try {
+		for await (const message of query({
+			prompt,
+			options: {
+				allowedTools: [], // No tools needed for analysis
+				appendSystemPrompt: ANALYSIS_SYSTEM_PROMPT,
+				maxTurns: 1,
+				env: buildEnv(claudeSettings),
+			},
+		})) {
+			if (message.type === 'assistant') {
+				for (const block of message.message.content) {
+					if (block.type === 'text') {
+						fullResponse += block.text;
+					}
+				}
+			}
+		}
+
+		// Extract JSON from response
+		const jsonMatch = fullResponse.match(/```json\s*([\s\S]*?)```/);
+		if (jsonMatch) {
+			const analysis = JSON.parse(jsonMatch[1]);
+			return {
+				summary: analysis.summary || '',
+				suggestedLabels: analysis.suggestedLabels || [],
+				duplicateSearchTerms: analysis.duplicateSearchTerms || [],
+				needsInfo: analysis.needsInfo || false,
+				draftResponse: analysis.draftResponse,
+			};
+		} else {
+			throw new Error('Failed to parse analysis response - no JSON block found');
 		}
 	} catch (error) {
 		if (isAuthError(error)) {

@@ -5,6 +5,7 @@ interface ProgressHeaderProps {
   isLoading: boolean;
   lastUpdated: Date | null;
   onRefresh: () => void;
+  onHelpClick: () => void;
 }
 
 export function ProgressHeader({
@@ -14,6 +15,7 @@ export function ProgressHeader({
   isLoading,
   lastUpdated,
   onRefresh,
+  onHelpClick,
 }: ProgressHeaderProps) {
   const remainingCount = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -58,6 +60,13 @@ export function ProgressHeader({
                 Updated {lastUpdated.toLocaleTimeString()}
               </span>
             )}
+            <button
+              onClick={onHelpClick}
+              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              title="Keyboard shortcuts (?)"
+            >
+              <span className="text-sm font-mono">?</span>
+            </button>
             <button
               onClick={onRefresh}
               disabled={isLoading}

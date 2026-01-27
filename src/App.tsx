@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ProgressHeader } from './components/ProgressHeader/ProgressHeader';
 import { QueueList, QueueFilters } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
+import { HelpModal } from './components/HelpModal/HelpModal';
 import { useIntakeQueue } from './hooks/useIntakeQueue';
-import { QueueItem, ClaudeAnalysis } from './types/intake';
+import { useAnalysis } from './hooks/useAnalysis';
+import { QueueItem } from './types/intake';
 
 const DEFAULT_FILTERS: QueueFilters = {
   type: 'all',
@@ -14,36 +16,26 @@ const DEFAULT_FILTERS: QueueFilters = {
 
 function App() {
   const queue = useIntakeQueue();
+  const { analysis, analyzeItem, clearAnalysis } = useAnalysis();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
-  const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
+  const [showHelp, setShowHelp] = useState(false);
 
-  const handleSelectItem = (item: QueueItem) => {
+  const handleSelectItem = useCallback((item: QueueItem) => {
     setSelectedItem(item);
-    setAnalysis(null); // Clear previous analysis
-  };
+    clearAnalysis();
+  }, [clearAnalysis]);
 
-  const handleClosePanel = () => {
+  const handleClosePanel = useCallback(() => {
     setSelectedItem(null);
-    setAnalysis(null);
-  };
+    clearAnalysis();
+  }, [clearAnalysis]);
 
-  const handleRequestAnalysis = async () => {
-    if (!selectedItem) return;
-
-    setAnalysis({ suggestedLabels: [], duplicates: [], summary: '', isLoading: true });
-
-    // TODO: Implement in Phase 4
-    // For now, simulate loading
-    setTimeout(() => {
-      setAnalysis({
-        suggestedLabels: ['area:editor', 'type:bug'],
-        duplicates: [],
-        summary: 'This appears to be a bug report about...',
-        isLoading: false,
-      });
-    }, 1000);
-  };
+  const handleRequestAnalysis = useCallback((body: string) => {
+    if (selectedItem) {
+      analyzeItem(selectedItem, body);
+    }
+  }, [selectedItem, analyzeItem]);
 
   const handleApplyLabel = async (label: string) => {
     if (!selectedItem) return;
@@ -56,13 +48,82 @@ function App() {
       });
 
       if (response.ok) {
-        // Refresh to show updated labels
         queue.refresh();
       }
     } catch (error) {
       console.error('Failed to apply label:', error);
     }
   };
+
+  const handleRemoveLabel = async (label: string) => {
+    if (!selectedItem) return;
+
+    try {
+      const response = await fetch(`/api/issues/${selectedItem.number}/labels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, action: 'remove' }),
+      });
+
+      if (response.ok) {
+        queue.refresh();
+      }
+    } catch (error) {
+      console.error('Failed to remove label:', error);
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const items = queue.items;
+      const currentIndex = selectedItem ? items.findIndex(i => i.id === selectedItem.id) : -1;
+
+      switch (e.key) {
+        case 'j': // Next item
+        case 'ArrowDown':
+          e.preventDefault();
+          if (currentIndex < items.length - 1) {
+            handleSelectItem(items[currentIndex + 1]);
+          } else if (currentIndex === -1 && items.length > 0) {
+            handleSelectItem(items[0]);
+          }
+          break;
+        case 'k': // Previous item
+        case 'ArrowUp':
+          e.preventDefault();
+          if (currentIndex > 0) {
+            handleSelectItem(items[currentIndex - 1]);
+          }
+          break;
+        case 'Escape':
+          handleClosePanel();
+          setShowHelp(false);
+          break;
+        case 'o':
+          if (selectedItem) {
+            window.open(selectedItem.url, '_blank');
+          }
+          break;
+        case 'r':
+          if (!queue.isLoading) {
+            queue.refresh();
+          }
+          break;
+        case '?':
+          setShowHelp(prev => !prev);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [queue.items, queue.isLoading, queue.refresh, selectedItem, handleSelectItem, handleClosePanel]);
 
   // Calculate completed count (items with status labels or triaged)
   const completedCount = queue.items.filter(item =>
@@ -78,6 +139,7 @@ function App() {
         isLoading={queue.isLoading}
         lastUpdated={queue.fetchedAt}
         onRefresh={queue.refresh}
+        onHelpClick={() => setShowHelp(true)}
       />
 
       <main className="flex-1 flex overflow-hidden">
@@ -99,10 +161,14 @@ function App() {
             analysis={analysis}
             onClose={handleClosePanel}
             onApplyLabel={handleApplyLabel}
+            onRemoveLabel={handleRemoveLabel}
             onRequestAnalysis={handleRequestAnalysis}
           />
         </div>
       </main>
+
+      {/* Help modal */}
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
       {/* Error toast */}
       {queue.error && (
