@@ -168,9 +168,18 @@ async function fetchIssuesInIntake(): Promise<GitHubIssueSummary[]> {
     const data = JSON.parse(result);
     const issues: GraphQLIssueNode[] = data.data?.repository?.issues?.nodes || [];
 
-    // Filter for issues without Status field in Positron project
+    // Filter for issues that need intake attention:
+    // - Not in Positron Backlog project (those are already triaged)
+    // - Not having Status field set in Positron project
     return issues
       .filter((issue) => {
+        // If in Positron Backlog project, it's been taken care of
+        const inBacklogProject = issue.projectItems?.nodes?.some(
+          (item) => item.project?.title === 'Positron Backlog'
+        );
+        if (inBacklogProject) return false;
+
+        // Check Positron project status
         const positronProject = issue.projectItems?.nodes?.find(
           (item) => item.project?.title === 'Positron'
         );
