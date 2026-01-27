@@ -1,11 +1,27 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { runIntakeAnalysis, sendFollowUp, executeQuickAction, AuthenticationRequiredError } from './agent.js';
+import {
+	runIntakeAnalysis,
+	sendFollowUp,
+	executeQuickAction,
+	AuthenticationRequiredError,
+	loadClaudeSettings,
+	type ClaudeSettings,
+} from './agent.js';
 
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
+
+// Load Claude settings at startup
+const claudeSettings: ClaudeSettings = loadClaudeSettings();
+if (claudeSettings.env) {
+	console.log('Loaded Claude Code settings with env config');
+	if (claudeSettings.env.CLAUDE_CODE_USE_BEDROCK) {
+		console.log('Using Bedrock authentication');
+	}
+}
 
 app.use(express.json());
 
@@ -72,7 +88,7 @@ wss.on('connection', (ws) => {
 
 async function handleCatchUp(ws: WebSocket, state: ClientState) {
 	try {
-		for await (const message of runIntakeAnalysis({ sessionId: state.sessionId })) {
+		for await (const message of runIntakeAnalysis({ sessionId: state.sessionId, claudeSettings })) {
 			ws.send(JSON.stringify(message));
 
 			// Extract session ID from messages (SDK messages have session_id)
@@ -84,12 +100,12 @@ async function handleCatchUp(ws: WebSocket, state: ClientState) {
 	} catch (error) {
 		console.error('Error in catch up:', error);
 
-		const isAuthError = error instanceof AuthenticationRequiredError;
+		const authError = error instanceof AuthenticationRequiredError ? error : null;
 		ws.send(JSON.stringify({
 			type: 'error',
-			isAuthError,
-			content: isAuthError
-				? 'Claude Code authentication required. Please run "claude" in your terminal to authenticate, then try again.'
+			isAuthError: !!authError,
+			content: authError
+				? authError.message
 				: (error instanceof Error ? error.message : 'Failed to analyze intake'),
 		}));
 	}
@@ -97,7 +113,7 @@ async function handleCatchUp(ws: WebSocket, state: ClientState) {
 
 async function handleFollowUp(ws: WebSocket, state: ClientState, prompt: string) {
 	try {
-		for await (const message of sendFollowUp(prompt, state.sessionId!, {})) {
+		for await (const message of sendFollowUp(prompt, state.sessionId!, { claudeSettings })) {
 			ws.send(JSON.stringify(message));
 
 			if ('session_id' in message && message.session_id) {
@@ -108,12 +124,12 @@ async function handleFollowUp(ws: WebSocket, state: ClientState, prompt: string)
 	} catch (error) {
 		console.error('Error in follow up:', error);
 
-		const isAuthError = error instanceof AuthenticationRequiredError;
+		const authError = error instanceof AuthenticationRequiredError ? error : null;
 		ws.send(JSON.stringify({
 			type: 'error',
-			isAuthError,
-			content: isAuthError
-				? 'Claude Code authentication required. Please run "claude" in your terminal to authenticate, then try again.'
+			isAuthError: !!authError,
+			content: authError
+				? authError.message
 				: (error instanceof Error ? error.message : 'Failed to process follow-up'),
 		}));
 	}
@@ -126,18 +142,18 @@ async function handleQuickAction(
 	value?: string
 ) {
 	try {
-		for await (const message of executeQuickAction(action, issueNumber, value)) {
+		for await (const message of executeQuickAction(action, issueNumber, value, { claudeSettings })) {
 			ws.send(JSON.stringify(message));
 		}
 	} catch (error) {
 		console.error('Error in quick action:', error);
 
-		const isAuthError = error instanceof AuthenticationRequiredError;
+		const authError = error instanceof AuthenticationRequiredError ? error : null;
 		ws.send(JSON.stringify({
 			type: 'error',
-			isAuthError,
-			content: isAuthError
-				? 'Claude Code authentication required. Please run "claude" in your terminal to authenticate, then try again.'
+			isAuthError: !!authError,
+			content: authError
+				? authError.message
 				: (error instanceof Error ? error.message : 'Failed to execute action'),
 		}));
 	}

@@ -1,9 +1,33 @@
 import { query, type SDKMessage } from '@anthropic-ai/claude-code';
+import { readFileSync, existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import { INTAKE_SYSTEM_PROMPT, CATCH_UP_PROMPT } from './prompts/intake.js';
+
+export interface ClaudeSettings {
+	env?: Record<string, string>;
+	awsAuthRefresh?: string;
+}
 
 export interface AgentOptions {
 	sessionId?: string;
 	workingDirectory?: string;
+	claudeSettings?: ClaudeSettings;
+}
+
+/**
+ * Load Claude Code settings from the user's ~/.claude/settings.json
+ */
+export function loadClaudeSettings(): ClaudeSettings {
+	const settingsPath = join(homedir(), '.claude', 'settings.json');
+	if (!existsSync(settingsPath)) {
+		return {};
+	}
+	try {
+		return JSON.parse(readFileSync(settingsPath, 'utf-8'));
+	} catch {
+		return {};
+	}
 }
 
 /**
@@ -11,9 +35,16 @@ export interface AgentOptions {
  * Users should run `claude` in their terminal to authenticate first.
  */
 export class AuthenticationRequiredError extends Error {
-	constructor() {
-		super('Claude Code authentication required. Please run "claude" in your terminal to authenticate first.');
+	refreshCommand?: string;
+
+	constructor(refreshCommand?: string) {
+		const baseMsg = 'Claude Code authentication required.';
+		const hint = refreshCommand
+			? `Run: ${refreshCommand}`
+			: 'Please run "claude" in your terminal to authenticate.';
+		super(`${baseMsg} ${hint}`);
 		this.name = 'AuthenticationRequiredError';
+		this.refreshCommand = refreshCommand;
 	}
 }
 
@@ -23,20 +54,43 @@ export class AuthenticationRequiredError extends Error {
  */
 function isAuthError(error: unknown): boolean {
 	if (error instanceof Error) {
+		const msg = error.message.toLowerCase();
 		// JSON parsing error with "Attempting" suggests auth prompt in stdout
-		if (error.message.includes('Unexpected token') && error.message.includes('Attempting')) {
+		if (msg.includes('unexpected token') && error.message.includes('Attempting')) {
 			return true;
 		}
 		// Other auth-related patterns
-		if (error.message.includes('not authenticated') || error.message.includes('authentication required')) {
+		if (msg.includes('not authenticated') || msg.includes('authentication required')) {
+			return true;
+		}
+		// SSO token expiry detection
+		if (msg.includes('token has expired') || msg.includes('sso session') || msg.includes('expired sso')) {
+			return true;
+		}
+		// AWS credential errors
+		if (msg.includes('unable to locate credentials') || msg.includes('invalid credentials')) {
 			return true;
 		}
 	}
 	return false;
 }
 
+/**
+ * Build environment by merging process.env with Claude settings env.
+ * This ensures PATH and other system variables are preserved.
+ */
+function buildEnv(claudeSettings?: ClaudeSettings): Record<string, string> | undefined {
+	if (!claudeSettings?.env) {
+		return undefined;
+	}
+	return {
+		...process.env as Record<string, string>,
+		...claudeSettings.env,
+	};
+}
+
 export async function* runIntakeAnalysis(options: AgentOptions = {}): AsyncGenerator<SDKMessage> {
-	const { sessionId, workingDirectory = process.cwd() } = options;
+	const { sessionId, workingDirectory = process.cwd(), claudeSettings } = options;
 
 	try {
 		for await (const message of query({
@@ -46,13 +100,14 @@ export async function* runIntakeAnalysis(options: AgentOptions = {}): AsyncGener
 				appendSystemPrompt: INTAKE_SYSTEM_PROMPT,
 				cwd: workingDirectory,
 				resume: sessionId,
+				env: buildEnv(claudeSettings),
 			},
 		})) {
 			yield message;
 		}
 	} catch (error) {
 		if (isAuthError(error)) {
-			throw new AuthenticationRequiredError();
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
 		}
 		throw error;
 	}
@@ -63,7 +118,7 @@ export async function* sendFollowUp(
 	sessionId: string,
 	options: AgentOptions = {}
 ): AsyncGenerator<SDKMessage> {
-	const { workingDirectory = process.cwd() } = options;
+	const { workingDirectory = process.cwd(), claudeSettings } = options;
 
 	try {
 		for await (const message of query({
@@ -73,13 +128,14 @@ export async function* sendFollowUp(
 				appendSystemPrompt: INTAKE_SYSTEM_PROMPT,
 				resume: sessionId,
 				cwd: workingDirectory,
+				env: buildEnv(claudeSettings),
 			},
 		})) {
 			yield message;
 		}
 	} catch (error) {
 		if (isAuthError(error)) {
-			throw new AuthenticationRequiredError();
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
 		}
 		throw error;
 	}
@@ -91,7 +147,7 @@ export async function* executeQuickAction(
 	value?: string,
 	options: AgentOptions = {}
 ): AsyncGenerator<SDKMessage> {
-	const { workingDirectory = process.cwd() } = options;
+	const { workingDirectory = process.cwd(), claudeSettings } = options;
 
 	let prompt: string;
 
@@ -115,13 +171,14 @@ export async function* executeQuickAction(
 			options: {
 				allowedTools: ['Bash'],
 				cwd: workingDirectory,
+				env: buildEnv(claudeSettings),
 			},
 		})) {
 			yield message;
 		}
 	} catch (error) {
 		if (isAuthError(error)) {
-			throw new AuthenticationRequiredError();
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
 		}
 		throw error;
 	}
