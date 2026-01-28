@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { QueueItem } from '../../types/intake';
 
 interface QueueListProps {
@@ -9,17 +10,18 @@ interface QueueListProps {
 }
 
 export interface QueueFilters {
-  type: 'all' | 'issue' | 'discussion';
   hasLabels: 'all' | 'labeled' | 'unlabeled';
   age: 'all' | 'fresh' | 'stale';
   searchQuery: string;
-  sortBy: 'oldest' | 'newest' | 'type';
+  sortBy: 'oldest' | 'newest';
 }
 
 export function QueueList({ items, selectedId, onSelect, filters, onFiltersChange }: QueueListProps) {
-  const filteredItems = items.filter(item => {
-    if (filters.type !== 'all' && item.type !== filters.type) return false;
+  const [issuesCollapsed, setIssuesCollapsed] = useState(false);
+  const [discussionsCollapsed, setDiscussionsCollapsed] = useState(false);
 
+  // Filter items (excluding type filter since we're separating them)
+  const filteredItems = items.filter(item => {
     // Label filter only applies to issues (discussions don't have labels)
     if (filters.hasLabels === 'labeled' && item.type === 'issue' && item.labels.length === 0) return false;
     if (filters.hasLabels === 'unlabeled' && item.type === 'issue' && item.labels.length > 0) return false;
@@ -30,20 +32,25 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
     return true;
   });
 
-  // Apply sorting
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    switch (filters.sortBy) {
-      case 'newest':
-        return b.createdAt.getTime() - a.createdAt.getTime();
-      case 'oldest':
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      case 'type':
-        if (a.type !== b.type) return a.type === 'issue' ? -1 : 1;
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      default:
-        return 0;
-    }
-  });
+  // Sort items
+  const sortItems = (itemsToSort: QueueItem[]) => {
+    return [...itemsToSort].sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'newest':
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        case 'oldest':
+        default:
+          return a.createdAt.getTime() - b.createdAt.getTime();
+      }
+    });
+  };
+
+  // Separate and sort by type
+  const issues = sortItems(filteredItems.filter(item => item.type === 'issue'));
+  const discussions = sortItems(filteredItems.filter(item => item.type === 'discussion'));
+
+  const totalIssues = items.filter(item => item.type === 'issue').length;
+  const totalDiscussions = items.filter(item => item.type === 'discussion').length;
 
   return (
     <div className="flex flex-col h-full">
@@ -64,7 +71,7 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
             </svg>
             <input
               type="text"
-              placeholder="Search issues..."
+              placeholder="Search items..."
               value={filters.searchQuery}
               onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
               className="w-full pl-9 pr-3 py-2 text-sm input"
@@ -78,36 +85,11 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
           >
             <option value="oldest">Oldest first</option>
             <option value="newest">Newest first</option>
-            <option value="type">By type</option>
           </select>
         </div>
 
         {/* Filter chips */}
         <div className="flex gap-2 flex-wrap">
-          <FilterChip
-            label="All"
-            active={filters.type === 'all'}
-            onClick={() => onFiltersChange({ ...filters, type: 'all' })}
-          />
-          <FilterChip
-            label="Issues"
-            active={filters.type === 'issue'}
-            onClick={() => onFiltersChange({ ...filters, type: 'issue' })}
-            icon={
-              <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }} />
-            }
-          />
-          <FilterChip
-            label="Discussions"
-            active={filters.type === 'discussion'}
-            onClick={() => onFiltersChange({ ...filters, type: 'discussion' })}
-            icon={
-              <span className="w-2 h-2 rounded-full" style={{ background: 'var(--info)' }} />
-            }
-          />
-
-          <div className="w-px h-5 self-center mx-1" style={{ background: 'var(--border-subtle)' }} />
-
           <FilterChip
             label="Unlabeled"
             active={filters.hasLabels === 'unlabeled'}
@@ -126,62 +108,137 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
         </div>
       </div>
 
-      {/* Item list */}
-      <div className="flex-1 overflow-y-auto">
-        {sortedItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
-              style={{ background: 'var(--bg-tertiary)' }}
-            >
-              <svg className="w-6 h-6" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {items.length === 0 ? 'No items in queue' : 'No items match filters'}
-            </p>
-            {items.length > 0 && (
-              <button
-                onClick={() => onFiltersChange({
-                  type: 'all',
-                  hasLabels: 'all',
-                  age: 'all',
-                  searchQuery: '',
-                  sortBy: 'oldest',
-                })}
-                className="mt-3 text-sm"
-                style={{ color: 'var(--accent)' }}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="py-2">
-            {sortedItems.map((item, index) => (
-              <QueueItemRow
-                key={item.id}
-                item={item}
-                isSelected={item.id === selectedId}
-                onClick={() => onSelect(item)}
-                index={index}
-              />
-            ))}
-          </div>
-        )}
+      {/* Split panels for Issues and Discussions */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Issues panel */}
+        <TypePanel
+          title="Issues"
+          type="issue"
+          items={issues}
+          totalCount={totalIssues}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          collapsed={issuesCollapsed}
+          onToggleCollapse={() => setIssuesCollapsed(!issuesCollapsed)}
+          emptyMessage={items.length === 0 ? 'No issues in queue' : 'No issues match filters'}
+        />
+
+        {/* Divider */}
+        <div
+          className="h-px flex-shrink-0"
+          style={{ background: 'var(--border-subtle)' }}
+        />
+
+        {/* Discussions panel */}
+        <TypePanel
+          title="Discussions"
+          type="discussion"
+          items={discussions}
+          totalCount={totalDiscussions}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          collapsed={discussionsCollapsed}
+          onToggleCollapse={() => setDiscussionsCollapsed(!discussionsCollapsed)}
+          emptyMessage={items.length === 0 ? 'No discussions in queue' : 'No discussions match filters'}
+        />
       </div>
 
       {/* Count footer */}
       <div
-        className="px-4 py-2.5 text-xs"
+        className="px-4 py-2.5 text-xs flex-shrink-0"
         style={{
           borderTop: '1px solid var(--border-subtle)',
           color: 'var(--text-muted)'
         }}
       >
-        <span className="tabular-nums">{sortedItems.length}</span> of <span className="tabular-nums">{items.length}</span> items
+        <span className="tabular-nums">{issues.length + discussions.length}</span> of <span className="tabular-nums">{items.length}</span> items
       </div>
+    </div>
+  );
+}
+
+function TypePanel({
+  title,
+  type,
+  items,
+  totalCount,
+  selectedId,
+  onSelect,
+  collapsed,
+  onToggleCollapse,
+  emptyMessage,
+}: {
+  title: string;
+  type: 'issue' | 'discussion';
+  items: QueueItem[];
+  totalCount: number;
+  selectedId: string | null;
+  onSelect: (item: QueueItem) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  emptyMessage: string;
+}) {
+  const typeColor = type === 'issue' ? 'var(--success)' : 'var(--info)';
+
+  return (
+    <div className={`flex flex-col ${collapsed ? 'flex-shrink-0' : 'flex-1 min-h-0'}`}>
+      {/* Panel header */}
+      <button
+        onClick={onToggleCollapse}
+        className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-tertiary)] transition-colors"
+        style={{ borderBottom: collapsed ? 'none' : '1px solid var(--border-subtle)' }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: typeColor }}
+          />
+          <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+            {title}
+          </span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}
+          >
+            {items.length}/{totalCount}
+          </span>
+        </div>
+        <svg
+          className={`w-4 h-4 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}
+          style={{ color: 'var(--text-muted)' }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Panel content */}
+      {!collapsed && (
+        <div className="flex-1 overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {emptyMessage}
+              </p>
+            </div>
+          ) : (
+            <div className="py-1">
+              {items.map((item, index) => (
+                <QueueItemRow
+                  key={item.id}
+                  item={item}
+                  isSelected={item.id === selectedId}
+                  onClick={() => onSelect(item)}
+                  index={index}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -227,7 +284,7 @@ function QueueItemRow({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-3 text-left transition-all duration-150 group"
+      className="w-full px-4 py-2.5 text-left transition-all duration-150 group"
       style={{
         background: isSelected ? 'var(--bg-tertiary)' : 'transparent',
         borderLeft: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
@@ -245,17 +302,9 @@ function QueueItemRow({
       }}
     >
       <div className="flex items-start gap-3">
-        {/* Type indicator */}
-        <div
-          className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-          style={{
-            background: item.type === 'issue' ? 'var(--success)' : 'var(--info)'
-          }}
-        />
-
         <div className="flex-1 min-w-0">
           {/* Title row */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
               #{item.number}
             </span>
@@ -287,7 +336,7 @@ function QueueItemRow({
 
           {/* Labels */}
           {item.labels.length > 0 && (
-            <div className="flex gap-1.5 mt-2 flex-wrap">
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
               {item.labels.slice(0, 3).map(label => (
                 <span
                   key={label}

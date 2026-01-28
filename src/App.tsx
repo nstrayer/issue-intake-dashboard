@@ -9,7 +9,6 @@ import { useAnalysis } from './hooks/useAnalysis';
 import { QueueItem } from './types/intake';
 
 const DEFAULT_FILTERS: QueueFilters = {
-  type: 'all',
   hasLabels: 'all',
   age: 'all',
   searchQuery: '',
