@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { QueueItem } from '../../types/intake';
+import { IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from '../../hooks/useIntakeQueue';
 
 interface QueueListProps {
   items: QueueItem[];
@@ -7,6 +8,8 @@ interface QueueListProps {
   onSelect: (item: QueueItem) => void;
   filters: QueueFilters;
   onFiltersChange: (filters: QueueFilters) => void;
+  intakeFilters: IntakeFilterOptions;
+  onIntakeFiltersChange: (filters: IntakeFilterOptions) => void;
 }
 
 export interface QueueFilters {
@@ -16,9 +19,47 @@ export interface QueueFilters {
   sortBy: 'oldest' | 'newest';
 }
 
-export function QueueList({ items, selectedId, onSelect, filters, onFiltersChange }: QueueListProps) {
+// Human-readable labels for intake filter options
+const INTAKE_FILTER_LABELS: Record<keyof IntakeFilterOptions, { label: string; description: string }> = {
+  excludeBacklogProject: {
+    label: 'Hide backlog items',
+    description: 'Items in "Positron Backlog" project',
+  },
+  excludeMilestoned: {
+    label: 'Hide milestoned',
+    description: 'Items assigned to a milestone',
+  },
+  excludeTriagedLabels: {
+    label: 'Hide triaged labels',
+    description: 'Items with duplicate/wontfix/invalid labels',
+  },
+  excludeStatusSet: {
+    label: 'Hide with status',
+    description: 'Items with Status field set in project',
+  },
+  excludeAnswered: {
+    label: 'Hide answered',
+    description: 'Discussions that have been answered',
+  },
+};
+
+export function QueueList({
+  items,
+  selectedId,
+  onSelect,
+  filters,
+  onFiltersChange,
+  intakeFilters,
+  onIntakeFiltersChange,
+}: QueueListProps) {
   const [issuesCollapsed, setIssuesCollapsed] = useState(false);
   const [discussionsCollapsed, setDiscussionsCollapsed] = useState(false);
+  const [intakeFiltersExpanded, setIntakeFiltersExpanded] = useState(false);
+
+  // Check if any intake filters are disabled (showing more items)
+  const hasCustomIntakeFilters = Object.entries(intakeFilters).some(
+    ([key, value]) => value !== DEFAULT_INTAKE_FILTERS[key as keyof IntakeFilterOptions]
+  );
 
   // Filter items (excluding type filter since we're separating them)
   const filteredItems = items.filter(item => {
@@ -51,6 +92,17 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
 
   const totalIssues = items.filter(item => item.type === 'issue').length;
   const totalDiscussions = items.filter(item => item.type === 'discussion').length;
+
+  const handleIntakeFilterToggle = (key: keyof IntakeFilterOptions) => {
+    onIntakeFiltersChange({
+      ...intakeFilters,
+      [key]: !intakeFilters[key],
+    });
+  };
+
+  const handleResetIntakeFilters = () => {
+    onIntakeFiltersChange(DEFAULT_INTAKE_FILTERS);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -89,7 +141,7 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <FilterChip
             label="Unlabeled"
             active={filters.hasLabels === 'unlabeled'}
@@ -105,7 +157,93 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
               </svg>
             }
           />
+
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
+
+          {/* Intake criteria toggle */}
+          <button
+            onClick={() => setIntakeFiltersExpanded(!intakeFiltersExpanded)}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150"
+            style={{
+              background: hasCustomIntakeFilters ? 'var(--accent-dim)' : 'transparent',
+              color: hasCustomIntakeFilters ? 'var(--accent)' : 'var(--text-muted)',
+              border: `1px solid ${hasCustomIntakeFilters ? 'rgba(212, 165, 116, 0.3)' : 'var(--border-subtle)'}`,
+            }}
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            Intake Criteria
+            <svg
+              className={`w-3 h-3 transition-transform duration-200 ${intakeFiltersExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
+
+        {/* Expandable intake filters panel */}
+        {intakeFiltersExpanded && (
+          <div
+            className="mt-3 p-3 rounded-lg animate-slideUp"
+            style={{ background: 'var(--bg-tertiary)' }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Intake Filter Criteria
+              </span>
+              {hasCustomIntakeFilters && (
+                <button
+                  onClick={handleResetIntakeFilters}
+                  className="text-xs px-2 py-0.5 rounded"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Reset to defaults
+                </button>
+              )}
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              These filters determine which items are fetched from GitHub. Disable filters to see more items.
+            </p>
+
+            {/* Issues filters */}
+            <div className="mb-3">
+              <span className="text-xs font-medium flex items-center gap-1.5 mb-2" style={{ color: 'var(--success)' }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }} />
+                Issues
+              </span>
+              <div className="space-y-1.5 pl-3.5">
+                {(['excludeBacklogProject', 'excludeMilestoned', 'excludeTriagedLabels', 'excludeStatusSet'] as const).map((key) => (
+                  <IntakeFilterToggle
+                    key={key}
+                    filterKey={key}
+                    checked={intakeFilters[key]}
+                    onChange={() => handleIntakeFilterToggle(key)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Discussions filters */}
+            <div>
+              <span className="text-xs font-medium flex items-center gap-1.5 mb-2" style={{ color: 'var(--info)' }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: 'var(--info)' }} />
+                Discussions
+              </span>
+              <div className="space-y-1.5 pl-3.5">
+                <IntakeFilterToggle
+                  filterKey="excludeAnswered"
+                  checked={intakeFilters.excludeAnswered}
+                  onChange={() => handleIntakeFilterToggle('excludeAnswered')}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Split panels for Issues and Discussions */}
@@ -154,6 +292,37 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
         <span className="tabular-nums">{issues.length + discussions.length}</span> of <span className="tabular-nums">{items.length}</span> items
       </div>
     </div>
+  );
+}
+
+function IntakeFilterToggle({
+  filterKey,
+  checked,
+  onChange,
+}: {
+  filterKey: keyof IntakeFilterOptions;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  const { label, description } = INTAKE_FILTER_LABELS[filterKey];
+
+  return (
+    <label className="flex items-start gap-2 cursor-pointer group">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="mt-0.5 w-3.5 h-3.5 rounded cursor-pointer accent-[var(--accent)]"
+      />
+      <div className="flex-1">
+        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+          {label}
+        </span>
+        <span className="text-xs ml-1" style={{ color: 'var(--text-muted)' }}>
+          — {description}
+        </span>
+      </div>
+    </label>
   );
 }
 

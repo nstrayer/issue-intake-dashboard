@@ -4,7 +4,7 @@ import { QueueList, QueueFilters } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
 import { HelpModal } from './components/HelpModal/HelpModal';
 import { SetupCheckModal } from './components/SetupCheckModal/SetupCheckModal';
-import { useIntakeQueue } from './hooks/useIntakeQueue';
+import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
 import { useAnalysis } from './hooks/useAnalysis';
 import { QueueItem } from './types/intake';
 
@@ -16,7 +16,8 @@ const DEFAULT_FILTERS: QueueFilters = {
 };
 
 function App() {
-  const queue = useIntakeQueue();
+  const [intakeFilters, setIntakeFilters] = useState<IntakeFilterOptions>(DEFAULT_INTAKE_FILTERS);
+  const queue = useIntakeQueue(intakeFilters);
   const { analysis, analyzeItem, clearAnalysis, sendFollowUp, followUpLoading } = useAnalysis();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
@@ -190,6 +191,8 @@ function App() {
             onSelect={handleSelectItem}
             filters={filters}
             onFiltersChange={setFilters}
+            intakeFilters={intakeFilters}
+            onIntakeFiltersChange={setIntakeFilters}
           />
         </div>
 

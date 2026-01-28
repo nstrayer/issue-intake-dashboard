@@ -36,7 +36,27 @@ export interface IntakeQueueData {
   discussions: GitHubDiscussionSummary[];
   fetchedAt: string;
   warnings?: string[];
+  activeFilters: IntakeFilterOptions;
 }
+
+// Intake filter options - all default to true (filter active)
+export interface IntakeFilterOptions {
+  // Issues
+  excludeBacklogProject: boolean;  // Exclude items in "Positron Backlog" project
+  excludeMilestoned: boolean;      // Exclude items with milestones
+  excludeTriagedLabels: boolean;   // Exclude items with duplicate/wontfix/invalid labels
+  excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
+  // Discussions
+  excludeAnswered: boolean;        // Exclude answered discussions
+}
+
+export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
+  excludeBacklogProject: true,
+  excludeMilestoned: true,
+  excludeTriagedLabels: true,
+  excludeStatusSet: true,
+  excludeAnswered: true,
+};
 
 const REPO = 'posit-dev/positron';
 const REPO_OWNER = 'posit-dev';
@@ -105,12 +125,14 @@ async function execGitHub(args: string[]): Promise<string> {
   });
 }
 
-export async function fetchIntakeQueue(): Promise<IntakeQueueData> {
+export async function fetchIntakeQueue(
+  filterOptions: IntakeFilterOptions = DEFAULT_INTAKE_FILTERS
+): Promise<IntakeQueueData> {
   const warnings: string[] = [];
 
   const [issues, discussions] = await Promise.all([
-    fetchIssuesInIntake(warnings),
-    fetchOpenDiscussions(),
+    fetchIssuesInIntake(warnings, filterOptions),
+    fetchOpenDiscussions(filterOptions),
   ]);
 
   return {
@@ -118,6 +140,7 @@ export async function fetchIntakeQueue(): Promise<IntakeQueueData> {
     discussions,
     fetchedAt: new Date().toISOString(),
     warnings: warnings.length > 0 ? warnings : undefined,
+    activeFilters: filterOptions,
   };
 }
 
@@ -187,7 +210,10 @@ interface GraphQLIssueNode {
   } | null;
 }
 
-async function fetchIssuesInIntake(warnings: string[]): Promise<GitHubIssueSummary[]> {
+async function fetchIssuesInIntake(
+  warnings: string[],
+  filterOptions: IntakeFilterOptions
+): Promise<GitHubIssueSummary[]> {
   try {
     // Use GraphQL to get issues with project field data
     const result = await execGitHub([
@@ -200,39 +226,45 @@ async function fetchIssuesInIntake(warnings: string[]): Promise<GitHubIssueSumma
     const data = JSON.parse(result);
     const issues: GraphQLIssueNode[] = data.data?.repository?.issues?.nodes || [];
 
-    // Filter for issues that need intake attention:
-    // - Not in Positron Backlog project (those are already triaged)
-    // - Not having Status field set in Positron project
-    // - Not having a milestone (milestoned = triaged)
-    // - Not having certain labels indicating triage happened
+    // Filter for issues that need intake attention based on filter options
     return issues
       .filter((issue) => {
         // If in Positron Backlog project, it's been taken care of
-        const inBacklogProject = issue.projectItems?.nodes?.some(
-          (item) => item.project?.title === 'Positron Backlog'
-        );
-        if (inBacklogProject) return false;
+        if (filterOptions.excludeBacklogProject) {
+          const inBacklogProject = issue.projectItems?.nodes?.some(
+            (item) => item.project?.title === 'Positron Backlog'
+          );
+          if (inBacklogProject) return false;
+        }
 
         // If has milestone, it's been triaged - exclude
-        if (issue.milestone) return false;
+        if (filterOptions.excludeMilestoned && issue.milestone) {
+          return false;
+        }
 
         // If has certain labels indicating triage happened - exclude
-        const triagedLabels = ['duplicate', 'wontfix', 'invalid'];
-        const hasTriagedLabel = issue.labels?.nodes?.some(
-          (l) => triagedLabels.includes(l.name.toLowerCase())
-        );
-        if (hasTriagedLabel) return false;
+        if (filterOptions.excludeTriagedLabels) {
+          const triagedLabels = ['duplicate', 'wontfix', 'invalid'];
+          const hasTriagedLabel = issue.labels?.nodes?.some(
+            (l) => triagedLabels.includes(l.name.toLowerCase())
+          );
+          if (hasTriagedLabel) return false;
+        }
 
         // Check Positron project status
-        const positronProject = issue.projectItems?.nodes?.find(
-          (item) => item.project?.title === 'Positron'
-        );
-        if (!positronProject) return true; // Not in project = in intake
+        if (filterOptions.excludeStatusSet) {
+          const positronProject = issue.projectItems?.nodes?.find(
+            (item) => item.project?.title === 'Positron'
+          );
+          if (positronProject) {
+            const statusField = positronProject.fieldValues?.nodes?.find(
+              (field) => field.field?.name === 'Status'
+            );
+            if (statusField?.name) return false; // Has status = triaged
+          }
+        }
 
-        const statusField = positronProject.fieldValues?.nodes?.find(
-          (field) => field.field?.name === 'Status'
-        );
-        return !statusField || !statusField.name; // No status = in intake
+        return true;
       })
       .map((issue) => ({
         number: issue.number,
@@ -296,11 +328,18 @@ interface GraphQLDiscussionNode {
   answer: { id: string } | null;
 }
 
-async function fetchOpenDiscussions(): Promise<GitHubDiscussionSummary[]> {
+async function fetchOpenDiscussions(
+  filterOptions: IntakeFilterOptions
+): Promise<GitHubDiscussionSummary[]> {
   try {
+    // Use different query based on whether we want to exclude answered discussions
+    const query = filterOptions.excludeAnswered
+      ? OPEN_DISCUSSIONS_QUERY  // This query has answered: false
+      : OPEN_DISCUSSIONS_QUERY.replace('answered: false', ''); // Remove the filter
+
     const result = await execGitHub([
       'api', 'graphql',
-      '-f', `query=${OPEN_DISCUSSIONS_QUERY}`,
+      '-f', `query=${query}`,
       '-f', `owner=${REPO_OWNER}`,
       '-f', `name=${REPO_NAME}`
     ]);
@@ -308,7 +347,12 @@ async function fetchOpenDiscussions(): Promise<GitHubDiscussionSummary[]> {
     const data = JSON.parse(result);
     const discussions: GraphQLDiscussionNode[] = data.data?.repository?.discussions?.nodes || [];
 
-    return discussions.map((disc) => ({
+    // If not excluding answered, filter client-side (the modified query returns all)
+    const filteredDiscussions = filterOptions.excludeAnswered
+      ? discussions
+      : discussions; // No additional filtering needed
+
+    return filteredDiscussions.map((disc) => ({
       number: disc.number,
       title: disc.title,
       author: { login: disc.author?.login || 'unknown' },

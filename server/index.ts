@@ -26,6 +26,8 @@ import {
 	setProjectStatus,
 	fetchRepoLabels,
 	searchDuplicates,
+	DEFAULT_INTAKE_FILTERS,
+	type IntakeFilterOptions,
 } from './github.js';
 import { runSetupChecks } from './setup-check.js';
 
@@ -72,9 +74,19 @@ app.get('/api/setup-check', async (_req, res) => {
 // ===== REST API Endpoints for Command Center =====
 
 // Lightweight list endpoint (no bodies)
-app.get('/api/intake', async (_req, res) => {
+// Accepts query params to override default intake filters
+app.get('/api/intake', async (req, res) => {
 	try {
-		const data = await fetchIntakeQueue();
+		// Parse filter options from query params (all default to true)
+		const filterOptions: IntakeFilterOptions = {
+			excludeBacklogProject: req.query.excludeBacklogProject !== 'false',
+			excludeMilestoned: req.query.excludeMilestoned !== 'false',
+			excludeTriagedLabels: req.query.excludeTriagedLabels !== 'false',
+			excludeStatusSet: req.query.excludeStatusSet !== 'false',
+			excludeAnswered: req.query.excludeAnswered !== 'false',
+		};
+
+		const data = await fetchIntakeQueue(filterOptions);
 		res.json(data);
 	} catch (error) {
 		console.error('Failed to fetch intake queue:', error);

@@ -15,6 +15,25 @@ export interface QueueItem {
   ageInDays: number;
 }
 
+// Intake filter options - mirrors server-side definition
+export interface IntakeFilterOptions {
+  // Issues
+  excludeBacklogProject: boolean;  // Exclude items in "Positron Backlog" project
+  excludeMilestoned: boolean;      // Exclude items with milestones
+  excludeTriagedLabels: boolean;   // Exclude items with duplicate/wontfix/invalid labels
+  excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
+  // Discussions
+  excludeAnswered: boolean;        // Exclude answered discussions
+}
+
+export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
+  excludeBacklogProject: true,
+  excludeMilestoned: true,
+  excludeTriagedLabels: true,
+  excludeStatusSet: true,
+  excludeAnswered: true,
+};
+
 export interface IntakeQueue {
   items: QueueItem[];
   totalCount: number;
@@ -24,6 +43,7 @@ export interface IntakeQueue {
   isLoading: boolean;
   error: string | null;
   warnings: string[];
+  activeFilters: IntakeFilterOptions;
 }
 
 const STALE_THRESHOLD_DAYS = 14;
@@ -58,21 +78,31 @@ interface IntakeQueueResponse {
   discussions: GitHubDiscussionSummary[];
   fetchedAt: string;
   warnings?: string[];
+  activeFilters: IntakeFilterOptions;
 }
 
-export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> } {
+export function useIntakeQueue(
+  intakeFilters: IntakeFilterOptions = DEFAULT_INTAKE_FILTERS
+): IntakeQueue & { refresh: () => Promise<void> } {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<IntakeFilterOptions>(DEFAULT_INTAKE_FILTERS);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/intake');
+      // Build query string from filter options
+      const params = new URLSearchParams();
+      Object.entries(intakeFilters).forEach(([key, value]) => {
+        params.set(key, String(value));
+      });
+
+      const response = await fetch(`/api/intake?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data: IntakeQueueResponse = await response.json();
@@ -121,12 +151,13 @@ export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> }
       setItems(allItems);
       setFetchedAt(new Date(data.fetchedAt));
       setWarnings(data.warnings || []);
+      setActiveFilters(data.activeFilters);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [intakeFilters]);
 
   useEffect(() => {
     fetchData();
@@ -147,6 +178,7 @@ export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> }
     isLoading,
     error,
     warnings,
+    activeFilters,
     refresh: fetchData,
   };
 }
