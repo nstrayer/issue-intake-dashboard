@@ -3,6 +3,7 @@ import { ProgressHeader } from './components/ProgressHeader/ProgressHeader';
 import { QueueList, QueueFilters } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
 import { HelpModal } from './components/HelpModal/HelpModal';
+import { SetupCheckModal } from './components/SetupCheckModal/SetupCheckModal';
 import { useIntakeQueue } from './hooks/useIntakeQueue';
 import { useAnalysis } from './hooks/useAnalysis';
 import { QueueItem } from './types/intake';
@@ -21,6 +22,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSetupCheck, setShowSetupCheck] = useState(false);
 
   const handleSelectItem = useCallback((item: QueueItem) => {
     setSelectedItem(item);
@@ -147,6 +149,7 @@ function App() {
         lastUpdated={queue.fetchedAt}
         onRefresh={queue.refresh}
         onHelpClick={() => setShowHelp(true)}
+        onSetupCheckClick={() => setShowSetupCheck(true)}
       />
 
       {queue.warnings.length > 0 && (
@@ -191,6 +194,9 @@ function App() {
 
       {/* Help modal */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Setup check modal */}
+      <SetupCheckModal isOpen={showSetupCheck} onClose={() => setShowSetupCheck(false)} />
 
       {/* Error toast */}
       {queue.error && (
