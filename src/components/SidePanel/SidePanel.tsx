@@ -1,7 +1,16 @@
 import { QueueItem, ClaudeAnalysis } from '../../types/intake';
 import { useItemDetails } from '../../hooks/useIntakeQueue';
 import { LabelPicker } from '../LabelPicker/LabelPicker';
+import { FollowUpConversation } from './FollowUpConversation';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+
+// Strip HTML comments from issue templates (e.g., <!-- instructions -->)
+function stripHtmlComments(text: string | undefined): string {
+  if (!text) return '';
+  return text.replace(/<!--[\s\S]*?-->/g, '').trim();
+}
 
 interface SidePanelProps {
   item: QueueItem | null;
@@ -10,9 +19,11 @@ interface SidePanelProps {
   onApplyLabel: (label: string) => void;
   onRemoveLabel: (label: string) => void;
   onRequestAnalysis: (body: string) => void;
+  onFollowUp?: (question: string, body: string) => void;
+  followUpLoading?: boolean;
 }
 
-export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel, onRequestAnalysis }: SidePanelProps) {
+export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel, onRequestAnalysis, onFollowUp, followUpLoading = false }: SidePanelProps) {
   // Fetch full details including body when item is selected
   const { body, isLoading: bodyLoading, error: bodyError } = useItemDetails(item);
 
@@ -100,7 +111,9 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
             <div className="text-red-400 text-sm">Failed to load description: {bodyError}</div>
           ) : (
             <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown>{body || '*No description provided*'}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                {stripHtmlComments(body) || '*No description provided*'}
+              </ReactMarkdown>
             </div>
           )}
         </div>
@@ -193,6 +206,15 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
                     Copy to Clipboard
                   </button>
                 </div>
+              )}
+
+              {/* Follow-up Conversation */}
+              {onFollowUp && (
+                <FollowUpConversation
+                  conversationHistory={analysis.conversationHistory || []}
+                  isLoading={followUpLoading}
+                  onSendMessage={(question) => onFollowUp(question, body)}
+                />
               )}
             </div>
           ) : (

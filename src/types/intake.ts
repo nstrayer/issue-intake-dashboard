@@ -15,6 +15,13 @@ export interface QueueItem {
 	ageInDays: number;
 }
 
+export interface FollowUpMessage {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	timestamp: Date;
+}
+
 export interface ClaudeAnalysis {
 	suggestedLabels: string[];
 	duplicates: { number: number; title: string; url: string; similarity: number }[];
@@ -22,4 +29,5 @@ export interface ClaudeAnalysis {
 	draftResponse?: string;
 	isLoading: boolean;
 	error?: string;
+	conversationHistory?: FollowUpMessage[];
 }

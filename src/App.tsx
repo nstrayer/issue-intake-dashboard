@@ -12,11 +12,12 @@ const DEFAULT_FILTERS: QueueFilters = {
   hasLabels: 'all',
   age: 'all',
   searchQuery: '',
+  sortBy: 'oldest',
 };
 
 function App() {
   const queue = useIntakeQueue();
-  const { analysis, analyzeItem, clearAnalysis } = useAnalysis();
+  const { analysis, analyzeItem, clearAnalysis, sendFollowUp, followUpLoading } = useAnalysis();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [showHelp, setShowHelp] = useState(false);
@@ -36,6 +37,12 @@ function App() {
       analyzeItem(selectedItem, body);
     }
   }, [selectedItem, analyzeItem]);
+
+  const handleFollowUp = useCallback((question: string, body: string) => {
+    if (selectedItem) {
+      sendFollowUp(question, selectedItem, body);
+    }
+  }, [selectedItem, sendFollowUp]);
 
   const handleApplyLabel = async (label: string) => {
     if (!selectedItem) return;
@@ -142,6 +149,19 @@ function App() {
         onHelpClick={() => setShowHelp(true)}
       />
 
+      {queue.warnings.length > 0 && (
+        <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-2 mx-4 mt-2 rounded-lg">
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-400 font-medium">Warning:</span>
+            <div>
+              {queue.warnings.map((warning, i) => (
+                <p key={i}>{warning}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 flex overflow-hidden">
         {/* Queue list */}
         <div className="w-1/2 lg:w-3/5 border-r border-gray-800 overflow-hidden">
@@ -163,6 +183,8 @@ function App() {
             onApplyLabel={handleApplyLabel}
             onRemoveLabel={handleRemoveLabel}
             onRequestAnalysis={handleRequestAnalysis}
+            onFollowUp={handleFollowUp}
+            followUpLoading={followUpLoading}
           />
         </div>
       </main>

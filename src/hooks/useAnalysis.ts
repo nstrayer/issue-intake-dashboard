@@ -1,15 +1,17 @@
 import { useState, useCallback } from 'react';
-import { ClaudeAnalysis, QueueItem } from '../types/intake';
+import { ClaudeAnalysis, QueueItem, FollowUpMessage } from '../types/intake';
 
 export function useAnalysis() {
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   const analyzeItem = useCallback(async (item: QueueItem, body: string) => {
     setAnalysis({
       suggestedLabels: [],
       duplicates: [],
       summary: '',
-      isLoading: true
+      isLoading: true,
+      conversationHistory: [],
     });
 
     try {
@@ -60,6 +62,7 @@ export function useAnalysis() {
         summary: analysisData.summary || '',
         draftResponse: analysisData.draftResponse,
         isLoading: false,
+        conversationHistory: [],
       });
     } catch (error) {
       setAnalysis({
@@ -68,13 +71,85 @@ export function useAnalysis() {
         summary: '',
         isLoading: false,
         error: error instanceof Error ? error.message : 'Analysis failed',
+        conversationHistory: [],
       });
     }
   }, []);
 
+  const sendFollowUp = useCallback(async (question: string, item: QueueItem, body: string) => {
+    if (!analysis || analysis.isLoading || followUpLoading) return;
+
+    const userMessage: FollowUpMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: question,
+      timestamp: new Date(),
+    };
+
+    // Optimistically add user message
+    setAnalysis(prev => prev ? {
+      ...prev,
+      conversationHistory: [...(prev.conversationHistory || []), userMessage],
+    } : null);
+
+    setFollowUpLoading(true);
+
+    try {
+      const response = await fetch(`/api/issues/${item.number}/analyze/follow-up`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          issue: {
+            title: item.title,
+            body: body,
+          },
+          analysis: {
+            summary: analysis.summary,
+            suggestedLabels: analysis.suggestedLabels,
+            draftResponse: analysis.draftResponse,
+          },
+          conversationHistory: (analysis.conversationHistory || []).map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Follow-up request failed');
+      }
+
+      const data = await response.json();
+
+      const assistantMessage: FollowUpMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date(),
+      };
+
+      setAnalysis(prev => prev ? {
+        ...prev,
+        conversationHistory: [...(prev.conversationHistory || []), assistantMessage],
+      } : null);
+    } catch (error) {
+      // Remove the optimistic user message on error and show error
+      setAnalysis(prev => prev ? {
+        ...prev,
+        conversationHistory: (prev.conversationHistory || []).filter(m => m.id !== userMessage.id),
+        error: error instanceof Error ? error.message : 'Follow-up failed',
+      } : null);
+    } finally {
+      setFollowUpLoading(false);
+    }
+  }, [analysis, followUpLoading]);
+
   const clearAnalysis = useCallback(() => {
     setAnalysis(null);
+    setFollowUpLoading(false);
   }, []);
 
-  return { analysis, analyzeItem, clearAnalysis };
+  return { analysis, analyzeItem, clearAnalysis, sendFollowUp, followUpLoading };
 }

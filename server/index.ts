@@ -1,14 +1,21 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import { resolve, dirname } from 'path';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import {
 	runIntakeAnalysis,
 	sendFollowUp,
 	executeQuickAction,
 	analyzeIssue,
+	followUpAnalysis,
 	AuthenticationRequiredError,
 	loadClaudeSettings,
 	type ClaudeSettings,
+	type FollowUpMessage,
 } from './agent.js';
 import {
 	fetchIntakeQueue,
@@ -32,6 +39,15 @@ if (claudeSettings.env) {
 	if (claudeSettings.env.CLAUDE_CODE_USE_BEDROCK) {
 		console.log('Using Bedrock authentication');
 	}
+}
+
+// Default: sibling positron repo. Override with POSITRON_REPO_PATH env var.
+const positronRepoPath = process.env.POSITRON_REPO_PATH || resolve(__dirname, '../../positron');
+if (existsSync(positronRepoPath)) {
+	console.log(`Using positron repo at: ${positronRepoPath}`);
+} else {
+	console.warn(`Warning: Positron repo not found at ${positronRepoPath}`);
+	console.warn('Follow-up searches will not work. Set POSITRON_REPO_PATH to fix.');
 }
 
 app.use(express.json());
@@ -173,6 +189,45 @@ app.post('/api/issues/:number/analyze', async (req, res) => {
 		const isAuth = error instanceof AuthenticationRequiredError;
 		res.status(isAuth ? 401 : 500).json({
 			error: error instanceof Error ? error.message : 'Analysis failed',
+			isAuthError: isAuth,
+		});
+	}
+});
+
+// Claude follow-up conversation endpoint
+app.post('/api/issues/:number/analyze/follow-up', async (req, res) => {
+	const { number } = req.params;
+	const { question, issue, analysis, conversationHistory } = req.body;
+
+	if (!question || typeof question !== 'string' || question.trim() === '') {
+		res.status(400).json({ error: 'Question is required' });
+		return;
+	}
+
+	try {
+		const response = await followUpAnalysis(
+			question,
+			{
+				issue: {
+					number: parseInt(number),
+					title: issue?.title || '',
+					body: issue?.body || '',
+				},
+				analysis: {
+					summary: analysis?.summary || '',
+					suggestedLabels: analysis?.suggestedLabels || [],
+					draftResponse: analysis?.draftResponse,
+				},
+				conversationHistory: (conversationHistory || []) as FollowUpMessage[],
+			},
+			{ claudeSettings, workingDirectory: positronRepoPath }
+		);
+		res.json({ response });
+	} catch (error) {
+		console.error('Follow-up failed:', error);
+		const isAuth = error instanceof AuthenticationRequiredError;
+		res.status(isAuth ? 401 : 500).json({
+			error: error instanceof Error ? error.message : 'Follow-up failed',
 			isAuthError: isAuth,
 		});
 	}

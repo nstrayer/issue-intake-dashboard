@@ -35,6 +35,7 @@ export interface IntakeQueueData {
   issues: GitHubIssueSummary[];
   discussions: GitHubDiscussionSummary[];
   fetchedAt: string;
+  warnings?: string[];
 }
 
 const REPO = 'posit-dev/positron';
@@ -45,6 +46,30 @@ const REPO_NAME = 'positron';
 async function verifyGitHubAuth(): Promise<void> {
   try {
     await execGitHub(['auth', 'status']);
+
+    // Test if we have read:project scope by making a simple project query
+    // This will fail if the scope is missing
+    const testQuery = `
+    query {
+      repository(owner: "${REPO_OWNER}", name: "${REPO_NAME}") {
+        projectsV2(first: 1) {
+          nodes { id }
+        }
+      }
+    }`;
+
+    try {
+      await execGitHub(['api', 'graphql', '-f', `query=${testQuery}`]);
+    } catch (scopeError) {
+      const errorMessage = String(scopeError);
+      if (errorMessage.includes('INSUFFICIENT_SCOPES') || errorMessage.includes('read:project')) {
+        console.error('\n⚠️  MISSING GITHUB SCOPE ⚠️');
+        console.error('The read:project scope is required to filter intake issues correctly.');
+        console.error('Run: gh auth refresh --scopes read:project');
+        console.error('Until fixed, all open issues will be shown (unfiltered).\n');
+      }
+      // Don't throw - allow app to continue with degraded filtering
+    }
   } catch (error) {
     console.error('GitHub CLI not authenticated. Run: gh auth login');
     throw new Error('GitHub CLI authentication required');
@@ -81,8 +106,10 @@ async function execGitHub(args: string[]): Promise<string> {
 }
 
 export async function fetchIntakeQueue(): Promise<IntakeQueueData> {
+  const warnings: string[] = [];
+
   const [issues, discussions] = await Promise.all([
-    fetchIssuesInIntake(),
+    fetchIssuesInIntake(warnings),
     fetchOpenDiscussions(),
   ]);
 
@@ -90,6 +117,7 @@ export async function fetchIntakeQueue(): Promise<IntakeQueueData> {
     issues,
     discussions,
     fetchedAt: new Date().toISOString(),
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
@@ -105,6 +133,9 @@ query GetIntakeIssues($owner: String!, $name: String!) {
         createdAt
         url
         state
+        milestone {
+          title
+        }
         labels(first: 10) {
           nodes { name }
         }
@@ -140,6 +171,7 @@ interface GraphQLIssueNode {
   createdAt: string;
   url: string;
   state: string;
+  milestone: { title: string } | null;
   labels: { nodes: { name: string }[] } | null;
   projectItems: {
     nodes: {
@@ -155,7 +187,7 @@ interface GraphQLIssueNode {
   } | null;
 }
 
-async function fetchIssuesInIntake(): Promise<GitHubIssueSummary[]> {
+async function fetchIssuesInIntake(warnings: string[]): Promise<GitHubIssueSummary[]> {
   try {
     // Use GraphQL to get issues with project field data
     const result = await execGitHub([
@@ -171,6 +203,8 @@ async function fetchIssuesInIntake(): Promise<GitHubIssueSummary[]> {
     // Filter for issues that need intake attention:
     // - Not in Positron Backlog project (those are already triaged)
     // - Not having Status field set in Positron project
+    // - Not having a milestone (milestoned = triaged)
+    // - Not having certain labels indicating triage happened
     return issues
       .filter((issue) => {
         // If in Positron Backlog project, it's been taken care of
@@ -178,6 +212,16 @@ async function fetchIssuesInIntake(): Promise<GitHubIssueSummary[]> {
           (item) => item.project?.title === 'Positron Backlog'
         );
         if (inBacklogProject) return false;
+
+        // If has milestone, it's been triaged - exclude
+        if (issue.milestone) return false;
+
+        // If has certain labels indicating triage happened - exclude
+        const triagedLabels = ['duplicate', 'wontfix', 'invalid'];
+        const hasTriagedLabel = issue.labels?.nodes?.some(
+          (l) => triagedLabels.includes(l.name.toLowerCase())
+        );
+        if (hasTriagedLabel) return false;
 
         // Check Positron project status
         const positronProject = issue.projectItems?.nodes?.find(
@@ -201,7 +245,16 @@ async function fetchIssuesInIntake(): Promise<GitHubIssueSummary[]> {
         projectStatus: undefined
       }));
   } catch (error) {
-    console.error('Failed to fetch intake issues:', error);
+    const errorMessage = String(error);
+    if (errorMessage.includes('INSUFFICIENT_SCOPES') || errorMessage.includes('read:project')) {
+      console.error('\n⚠️  MISSING GITHUB SCOPE ⚠️');
+      console.error('The read:project scope is required to filter intake issues correctly.');
+      console.error('Run: gh auth refresh --scopes read:project');
+      console.error('Until fixed, all open issues will be shown (unfiltered).\n');
+      warnings.push('Missing read:project scope. Showing all open issues (unfiltered). Run: gh auth refresh --scopes read:project');
+    } else {
+      console.error('Failed to fetch intake issues:', error);
+    }
     // Fallback to simpler query without project data
     const result = await execGitHub([
       'issue', 'list',

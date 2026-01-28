@@ -58,3 +58,49 @@ For duplicateSearchTerms, provide 2-3 search terms we could use to find similar 
 Set needsInfo to true if the issue lacks reproduction steps, version info, or other critical details.
 Only include draftResponse if we need to ask for info or provide a helpful acknowledgment.`;
 }
+
+export interface FollowUpMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export function buildFollowUpPrompt(
+  issue: { number: number; title: string; body: string },
+  analysis: { summary: string; suggestedLabels: string[]; draftResponse?: string },
+  conversationHistory: FollowUpMessage[],
+  userQuestion: string
+): string {
+  const historyText = conversationHistory
+    .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+    .join('\n\n');
+
+  return `You previously analyzed this GitHub issue. Now the triager has a follow-up question.
+
+## Issue #${issue.number}: ${issue.title}
+
+${issue.body || '*No description provided*'}
+
+## Your Previous Analysis
+
+Summary: ${analysis.summary}
+Suggested Labels: ${analysis.suggestedLabels.join(', ') || 'None'}
+${analysis.draftResponse ? `Draft Response: ${analysis.draftResponse}` : ''}
+
+## Your Capabilities
+
+You have access to the positron repository and can search for related issues:
+- Search issues: gh issue list --repo posit-dev/positron --search "<query>" --state all --limit 10
+- Search with labels: gh issue list --repo posit-dev/positron --label "<label>" --state all --limit 10
+
+IMPORTANT:
+- You CAN run read-only search commands (gh issue list, gh search issues, etc.)
+- You CANNOT modify issues (no adding labels, closing, commenting, editing)
+- When searching, present results clearly with issue numbers, titles, and states
+- If asked to modify an issue, explain that you can only search and the triager must make changes through the dashboard
+
+${historyText ? `## Conversation So Far\n\n${historyText}\n\n` : ''}## Follow-up Question
+
+${userQuestion}
+
+Provide a helpful, concise response to assist the triager.`;
+}

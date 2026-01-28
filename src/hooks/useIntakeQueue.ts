@@ -23,6 +23,7 @@ export interface IntakeQueue {
   fetchedAt: Date | null;
   isLoading: boolean;
   error: string | null;
+  warnings: string[];
 }
 
 const STALE_THRESHOLD_DAYS = 14;
@@ -56,6 +57,7 @@ interface IntakeQueueResponse {
   issues: GitHubIssueSummary[];
   discussions: GitHubDiscussionSummary[];
   fetchedAt: string;
+  warnings?: string[];
 }
 
 export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> } {
@@ -63,6 +65,7 @@ export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> }
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -117,6 +120,7 @@ export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> }
 
       setItems(allItems);
       setFetchedAt(new Date(data.fetchedAt));
+      setWarnings(data.warnings || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -142,6 +146,7 @@ export function useIntakeQueue(): IntakeQueue & { refresh: () => Promise<void> }
     fetchedAt,
     isLoading,
     error,
+    warnings,
     refresh: fetchData,
   };
 }

@@ -13,6 +13,7 @@ export interface QueueFilters {
   hasLabels: 'all' | 'labeled' | 'unlabeled';
   age: 'all' | 'fresh' | 'stale';
   searchQuery: string;
+  sortBy: 'oldest' | 'newest' | 'type';
 }
 
 export function QueueList({ items, selectedId, onSelect, filters, onFiltersChange }: QueueListProps) {
@@ -29,17 +30,43 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
     return true;
   });
 
+  // Apply sorting
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    switch (filters.sortBy) {
+      case 'newest':
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      case 'oldest':
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      case 'type':
+        if (a.type !== b.type) return a.type === 'issue' ? -1 : 1;
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      default:
+        return 0;
+    }
+  });
+
   return (
     <div className="flex flex-col h-full">
       {/* Filter bar */}
       <div className="p-3 border-b border-gray-800 space-y-2">
-        <input
-          type="text"
-          placeholder="Search issues..."
-          value={filters.searchQuery}
-          onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
-          className="w-full px-3 py-1.5 bg-[#0d1117] border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Search issues..."
+            value={filters.searchQuery}
+            onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
+            className="flex-1 px-3 py-1.5 bg-[#0d1117] border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+          />
+          <select
+            value={filters.sortBy}
+            onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value as QueueFilters['sortBy'] })}
+            className="px-2 py-1.5 bg-[#0d1117] border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value="oldest">Oldest First</option>
+            <option value="newest">Newest First</option>
+            <option value="type">By Type</option>
+          </select>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <FilterChip
             label="All"
@@ -72,25 +99,27 @@ export function QueueList({ items, selectedId, onSelect, filters, onFiltersChang
 
       {/* Item list */}
       <div className="flex-1 overflow-y-auto">
-        {filteredItems.length === 0 ? (
+        {sortedItems.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             {items.length === 0 ? 'No items in queue' : 'No items match filters'}
           </div>
         ) : (
-          filteredItems.map(item => (
-            <QueueItemRow
-              key={item.id}
-              item={item}
-              isSelected={item.id === selectedId}
-              onClick={() => onSelect(item)}
-            />
-          ))
+          <div className="divide-y divide-gray-800">
+            {sortedItems.map(item => (
+              <QueueItemRow
+                key={item.id}
+                item={item}
+                isSelected={item.id === selectedId}
+                onClick={() => onSelect(item)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
       {/* Count footer */}
       <div className="p-2 border-t border-gray-800 text-xs text-gray-500 text-center">
-        Showing {filteredItems.length} of {items.length} items
+        Showing {sortedItems.length} of {items.length} items
       </div>
     </div>
   );
@@ -117,7 +146,7 @@ function QueueItemRow({ item, isSelected, onClick }: { item: QueueItem; isSelect
   return (
     <button
       onClick={onClick}
-      className={`w-full p-3 text-left border-b border-gray-800 hover:bg-gray-800/50 transition-colors ${
+      className={`w-full p-4 text-left hover:bg-gray-800/50 transition-colors ${
         isSelected ? 'bg-gray-800 border-l-2 border-l-blue-500' : ''
       }`}
     >

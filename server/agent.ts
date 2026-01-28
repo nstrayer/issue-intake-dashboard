@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { INTAKE_SYSTEM_PROMPT, CATCH_UP_PROMPT } from './prompts/intake.js';
-import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisPrompt } from './prompts/analysis.js';
+import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage } from './prompts/analysis.js';
 
 export interface ClaudeSettings {
 	env?: Record<string, string>;
@@ -193,6 +193,8 @@ export interface AnalysisResult {
 	draftResponse?: string;
 }
 
+export { type FollowUpMessage } from './prompts/analysis.js';
+
 export async function analyzeIssue(
 	issue: { number: number; title: string; body: string; labels: string[] },
 	options: AgentOptions = {}
@@ -235,6 +237,66 @@ export async function analyzeIssue(
 		} else {
 			throw new Error('Failed to parse analysis response - no JSON block found');
 		}
+	} catch (error) {
+		if (isAuthError(error)) {
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
+		}
+		throw error;
+	}
+}
+
+export interface FollowUpContext {
+	issue: { number: number; title: string; body: string };
+	analysis: { summary: string; suggestedLabels: string[]; draftResponse?: string };
+	conversationHistory: FollowUpMessage[];
+}
+
+export async function followUpAnalysis(
+	userQuestion: string,
+	context: FollowUpContext,
+	options: AgentOptions = {}
+): Promise<string> {
+	const { claudeSettings, workingDirectory } = options;
+
+	const prompt = buildFollowUpPrompt(
+		context.issue,
+		context.analysis,
+		context.conversationHistory,
+		userQuestion
+	);
+	let fullResponse = '';
+	let hitMaxTurns = false;
+
+	try {
+		for await (const message of query({
+			prompt,
+			options: {
+				allowedTools: ['Bash'],
+				appendSystemPrompt: ANALYSIS_SYSTEM_PROMPT,
+				maxTurns: 15,
+				cwd: workingDirectory,
+				env: buildEnv(claudeSettings),
+			},
+		})) {
+			if (message.type === 'assistant') {
+				for (const block of message.message.content) {
+					if (block.type === 'text') {
+						fullResponse += block.text;
+					}
+				}
+			} else if (message.type === 'result') {
+				if ('subtype' in message && message.subtype === 'error_max_turns') {
+					hitMaxTurns = true;
+				}
+			}
+		}
+
+		// If hit max turns and response is incomplete, explain the issue
+		if (hitMaxTurns && fullResponse.trim().length < 100) {
+			return 'The search took too long to complete. Please try a more specific question, or search manually using the GitHub CLI.';
+		}
+
+		return fullResponse.trim();
 	} catch (error) {
 		if (isAuthError(error)) {
 			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
