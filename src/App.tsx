@@ -14,7 +14,8 @@ const DEFAULT_FILTERS: QueueFilters = {
   hasLabels: 'all',
   age: 'all',
   searchQuery: '',
-  sortBy: 'oldest',
+  issuesSortBy: 'newest',
+  discussionsSortBy: 'newest',
 };
 
 // All intake filters disabled (show everything)

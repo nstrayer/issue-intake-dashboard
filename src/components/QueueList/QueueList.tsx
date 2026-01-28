@@ -28,11 +28,14 @@ interface QueueListProps {
   onIncludeAllItemsChange: (value: boolean) => void;
 }
 
+export type SortOrder = 'oldest' | 'newest';
+
 export interface QueueFilters {
   hasLabels: 'all' | 'labeled' | 'unlabeled';
   age: 'all' | 'fresh' | 'stale';
   searchQuery: string;
-  sortBy: 'oldest' | 'newest';
+  issuesSortBy: SortOrder;
+  discussionsSortBy: SortOrder;
 }
 
 // Human-readable labels for intake filter options
@@ -103,10 +106,10 @@ export function QueueList({
         return true;
       });
 
-  // Sort items
-  const sortItems = (itemsToSort: QueueItem[]) => {
+  // Sort items by given sort order
+  const sortItems = (itemsToSort: QueueItem[], sortBy: SortOrder) => {
     return [...itemsToSort].sort((a, b) => {
-      switch (filters.sortBy) {
+      switch (sortBy) {
         case 'newest':
           return b.createdAt.getTime() - a.createdAt.getTime();
         case 'oldest':
@@ -116,9 +119,9 @@ export function QueueList({
     });
   };
 
-  // Separate and sort by type
-  const issues = sortItems(filteredItems.filter(item => item.type === 'issue'));
-  const discussions = sortItems(filteredItems.filter(item => item.type === 'discussion'));
+  // Separate and sort by type (each with its own sort order)
+  const issues = sortItems(filteredItems.filter(item => item.type === 'issue'), filters.issuesSortBy);
+  const discussions = sortItems(filteredItems.filter(item => item.type === 'discussion'), filters.discussionsSortBy);
 
   const totalIssues = items.filter(item => item.type === 'issue').length;
   const totalDiscussions = items.filter(item => item.type === 'discussion').length;
@@ -185,7 +188,7 @@ export function QueueList({
         ) : (
           /* Standard filter mode */
           <>
-            {/* Search and sort row */}
+            {/* Search row */}
             <div className="flex gap-3 mb-3">
               <div className="relative flex-1">
                 <svg
@@ -206,15 +209,6 @@ export function QueueList({
                   className="w-full pl-9 pr-3 py-2 text-sm input"
                 />
               </div>
-              <select
-                value={filters.sortBy}
-                onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value as QueueFilters['sortBy'] })}
-                className="px-3 py-2 text-sm input cursor-pointer"
-                style={{ minWidth: '130px' }}
-              >
-                <option value="oldest">Oldest first</option>
-                <option value="newest">Newest first</option>
-              </select>
             </div>
 
             {/* Filter chips */}
@@ -355,6 +349,8 @@ export function QueueList({
           collapsed={issuesCollapsed}
           onToggleCollapse={() => setIssuesCollapsed(!issuesCollapsed)}
           emptyMessage={items.length === 0 ? 'No issues in queue' : 'No issues match filters'}
+          sortBy={filters.issuesSortBy}
+          onSortChange={(sortBy) => onFiltersChange({ ...filters, issuesSortBy: sortBy })}
         />
 
         {/* Divider */}
@@ -374,6 +370,8 @@ export function QueueList({
           collapsed={discussionsCollapsed}
           onToggleCollapse={() => setDiscussionsCollapsed(!discussionsCollapsed)}
           emptyMessage={items.length === 0 ? 'No discussions in queue' : 'No discussions match filters'}
+          sortBy={filters.discussionsSortBy}
+          onSortChange={(sortBy) => onFiltersChange({ ...filters, discussionsSortBy: sortBy })}
         />
       </div>
 
@@ -432,6 +430,8 @@ function TypePanel({
   collapsed,
   onToggleCollapse,
   emptyMessage,
+  sortBy,
+  onSortChange,
 }: {
   title: string;
   type: 'issue' | 'discussion';
@@ -442,18 +442,22 @@ function TypePanel({
   collapsed: boolean;
   onToggleCollapse: () => void;
   emptyMessage: string;
+  sortBy: SortOrder;
+  onSortChange: (sortBy: SortOrder) => void;
 }) {
   const typeColor = type === 'issue' ? 'var(--success)' : 'var(--info)';
 
   return (
     <div className={`flex flex-col ${collapsed ? 'flex-shrink-0' : 'flex-1 min-h-0'}`}>
       {/* Panel header */}
-      <button
-        onClick={onToggleCollapse}
-        className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-tertiary)] transition-colors"
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
         style={{ borderBottom: collapsed ? 'none' : '1px solid var(--border-subtle)' }}
       >
-        <div className="flex items-center gap-2">
+        <button
+          onClick={onToggleCollapse}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ background: typeColor }}
@@ -467,18 +471,34 @@ function TypePanel({
           >
             {items.length}/{totalCount}
           </span>
-        </div>
-        <svg
-          className={`w-4 h-4 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}
-          style={{ color: 'var(--text-muted)' }}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}
+            style={{ color: 'var(--text-muted)' }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Sort dropdown */}
+        <select
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value as SortOrder)}
+          onClick={(e) => e.stopPropagation()}
+          className="px-2 py-1 text-xs rounded cursor-pointer"
+          style={{
+            background: 'var(--bg-tertiary)',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border-subtle)',
+          }}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <option value="oldest">Oldest</option>
+          <option value="newest">Newest</option>
+        </select>
+      </div>
 
       {/* Panel content */}
       {!collapsed && (
