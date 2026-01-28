@@ -241,13 +241,15 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
                         style={{
                           background: 'var(--accent-dim)',
                           color: 'var(--accent)',
-                          border: '1px solid rgba(212, 165, 116, 0.2)'
+                          border: '1px solid var(--accent)',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(212, 165, 116, 0.25)';
+                          e.currentTarget.style.background = 'var(--accent)';
+                          e.currentTarget.style.color = 'white';
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = 'var(--accent-dim)';
+                          e.currentTarget.style.color = 'var(--accent)';
                         }}
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -9,7 +9,7 @@ export function InfoModal({ isOpen, onClose }: InfoModalProps) {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50 animate-fadeIn"
-      style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
@@ -17,7 +17,7 @@ export function InfoModal({ isOpen, onClose }: InfoModalProps) {
         style={{
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-medium)',
-          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)'
+          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.15)'
         }}
         onClick={e => e.stopPropagation()}
       >

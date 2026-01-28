@@ -195,8 +195,8 @@ function App() {
         <div
           className="mx-6 mt-4 px-4 py-3 rounded-lg animate-slideUp"
           style={{
-            background: 'rgba(229, 168, 85, 0.1)',
-            border: '1px solid rgba(229, 168, 85, 0.25)'
+            background: 'rgba(212, 136, 15, 0.08)',
+            border: '1px solid rgba(212, 136, 15, 0.2)'
           }}
         >
           <div className="flex items-start gap-3">

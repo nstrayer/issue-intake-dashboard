@@ -250,7 +250,7 @@ export function QueueList({
                 style={{
                   background: hasCustomIntakeFilters ? 'var(--accent-dim)' : 'transparent',
                   color: hasCustomIntakeFilters ? 'var(--accent)' : 'var(--text-muted)',
-                  border: `1px solid ${hasCustomIntakeFilters ? 'rgba(212, 165, 116, 0.3)' : 'var(--border-subtle)'}`,
+                  border: `1px solid ${hasCustomIntakeFilters ? 'var(--accent-dim)' : 'var(--border-subtle)'}`,
                 }}
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -546,7 +546,7 @@ function FilterChip({
       style={{
         background: active ? 'var(--accent-dim)' : 'transparent',
         color: active ? 'var(--accent)' : 'var(--text-muted)',
-        border: `1px solid ${active ? 'rgba(212, 165, 116, 0.3)' : 'var(--border-subtle)'}`,
+        border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`,
       }}
     >
       {icon}

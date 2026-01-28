@@ -197,8 +197,8 @@ export function AIFilterInput({
         <div
           className="px-3 py-2 rounded-lg"
           style={{
-            background: 'rgba(212, 165, 116, 0.1)',
-            border: '1px solid rgba(212, 165, 116, 0.25)',
+            background: 'var(--accent-dim)',
+            border: '1px solid var(--accent)',
           }}
         >
           <div className="flex items-start justify-between gap-2">
