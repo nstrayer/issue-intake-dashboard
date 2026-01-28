@@ -1,3 +1,1 @@
-- Come up with a better distinction between discussions and issues. Two separate panels on the left side.
-- Create a UI for the filters that we are using to choose un-handled items. Should default to the current filters but allow the user to expand in case they want to see more items to do something like verify the fetching is actually working.
-- Time indicators just say "0d" for today. For items on the same day we should say how long it has been since created. E.g. "3h ago".
+- Add a "dump out to claude code proper" option. If the user gets into a state where they feel limited by the UI of the app there should be a button that the user can click that will then construct a prompt that is copied to the users clipboard. This prompt will allow them to continue what they're doing directly in claude code. It should referene the intake skill etc so that the user can continue their work seamlessly.
