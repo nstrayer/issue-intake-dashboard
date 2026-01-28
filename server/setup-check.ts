@@ -240,6 +240,94 @@ function checkClaudeMdFile(targetRepoPath: string): SetupCheckResult {
 	};
 }
 
+export interface EnvironmentInfo {
+	repo: {
+		owner: string;
+		name: string;
+		fullName: string;
+		url: string;
+	};
+	targetRepoPath: string;
+	targetRepoExists: boolean;
+	claudeSkillsFile: string | null;
+	claudeCodeVersion: string | null;
+	ghVersion: string | null;
+	ghAuthUser: string | null;
+	serverPort: string;
+	nodeVersion: string;
+}
+
+/**
+ * Get environment info for quick orientation
+ */
+export async function getEnvironmentInfo(targetRepoPath: string, repoConfig: RepoConfig): Promise<EnvironmentInfo> {
+	// Get Claude Code version
+	let claudeCodeVersion: string | null = null;
+	try {
+		const result = await execCommand('claude', ['--version']);
+		if (result.exitCode === 0) {
+			claudeCodeVersion = result.stdout.trim();
+		}
+	} catch {
+		// CLI not available
+	}
+
+	// Get gh version
+	let ghVersion: string | null = null;
+	try {
+		const result = await execCommand('gh', ['--version']);
+		if (result.exitCode === 0) {
+			ghVersion = result.stdout.split('\n')[0]?.replace('gh version ', '') || null;
+		}
+	} catch {
+		// CLI not available
+	}
+
+	// Get gh auth user
+	let ghAuthUser: string | null = null;
+	try {
+		const result = await execCommand('gh', ['auth', 'status']);
+		const output = result.stdout + result.stderr;
+		const accountMatch = output.match(/Logged in to [^ ]+ account ([^\s(]+)/i);
+		if (accountMatch) {
+			ghAuthUser = accountMatch[1];
+		}
+	} catch {
+		// Not authenticated
+	}
+
+	// Check for Claude skills file
+	let claudeSkillsFile: string | null = null;
+	const possiblePaths = [
+		{ path: resolve(targetRepoPath, 'skills', 'claude.md'), display: 'skills/claude.md' },
+		{ path: resolve(targetRepoPath, '.claude', 'CLAUDE.md'), display: '.claude/CLAUDE.md' },
+		{ path: resolve(targetRepoPath, 'CLAUDE.md'), display: 'CLAUDE.md' },
+	];
+	for (const { path, display } of possiblePaths) {
+		if (existsSync(path)) {
+			claudeSkillsFile = display;
+			break;
+		}
+	}
+
+	return {
+		repo: {
+			owner: repoConfig.owner,
+			name: repoConfig.name,
+			fullName: repoConfig.fullName,
+			url: `https://github.com/${repoConfig.fullName}`,
+		},
+		targetRepoPath,
+		targetRepoExists: existsSync(targetRepoPath),
+		claudeSkillsFile,
+		claudeCodeVersion,
+		ghVersion,
+		ghAuthUser,
+		serverPort: process.env.PORT || '3001',
+		nodeVersion: process.version,
+	};
+}
+
 /**
  * Run all setup checks
  */

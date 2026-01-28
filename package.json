@@ -36,7 +36,7 @@
 	"scripts": {
 		"dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
 		"dev:frontend": "vite",
-		"dev:backend": "tsx watch server/index.ts",
+		"dev:backend": "GITHUB_REPO=posit-dev/positron TARGET_REPO_PATH=../positron tsx watch server/index.ts",
 		"build": "vite build",
 		"preview": "vite preview",
 		"start": "node --import tsx server/index.ts",

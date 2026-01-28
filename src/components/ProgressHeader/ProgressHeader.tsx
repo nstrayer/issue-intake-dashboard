@@ -7,9 +7,9 @@ interface ProgressHeaderProps {
   repoName?: string;
   onRefresh: () => void;
   onHelpClick: () => void;
-  onSetupCheckClick: () => void;
   onInfoClick: () => void;
   onConfigClick?: () => void;
+  onEnvironmentClick: () => void;
 }
 
 export function ProgressHeader({
@@ -21,9 +21,9 @@ export function ProgressHeader({
   repoName,
   onRefresh,
   onHelpClick,
-  onSetupCheckClick,
   onInfoClick,
   onConfigClick,
+  onEnvironmentClick,
 }: ProgressHeaderProps) {
   const remainingCount = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -117,21 +117,21 @@ export function ProgressHeader({
           <div className="h-6 w-px" style={{ background: 'var(--border-subtle)' }} />
 
           <HeaderButton
-            onClick={onInfoClick}
-            label="About"
+            onClick={onEnvironmentClick}
+            label="Env"
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
             }
           />
 
           <HeaderButton
-            onClick={onSetupCheckClick}
-            label="Setup"
+            onClick={onInfoClick}
+            label="About"
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
           />

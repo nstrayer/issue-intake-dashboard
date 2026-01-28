@@ -4,8 +4,8 @@ import { QueueList, QueueFilters, FilterMode } from './components/QueueList/Queu
 import { SidePanel } from './components/SidePanel/SidePanel';
 import { HelpModal } from './components/HelpModal/HelpModal';
 import { InfoModal } from './components/InfoModal/InfoModal';
-import { SetupCheckModal } from './components/SetupCheckModal/SetupCheckModal';
 import { IntakeConfigModal } from './components/IntakeConfigModal/IntakeConfigModal';
+import { EnvironmentModal } from './components/EnvironmentModal/EnvironmentModal';
 import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
 import { useAnalysis } from './hooks/useAnalysis';
 import { useAIFilter } from './hooks/useAIFilter';
@@ -47,8 +47,8 @@ function App() {
   const [filterMode, setFilterMode] = useState<FilterMode>('standard');
   const [showHelp, setShowHelp] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [showSetupCheck, setShowSetupCheck] = useState(false);
   const [showIntakeConfig, setShowIntakeConfig] = useState(false);
+  const [showEnvironment, setShowEnvironment] = useState(false);
 
   // Handle includeAllItems toggle
   const handleIncludeAllItemsChange = useCallback((value: boolean) => {
@@ -152,6 +152,7 @@ function App() {
           handleClosePanel();
           setShowHelp(false);
           setShowInfo(false);
+          setShowEnvironment(false);
           break;
         case 'o':
           if (selectedItem) {
@@ -193,8 +194,8 @@ function App() {
         onRefresh={queue.refresh}
         onHelpClick={() => setShowHelp(true)}
         onInfoClick={() => setShowInfo(true)}
-        onSetupCheckClick={() => setShowSetupCheck(true)}
         onConfigClick={() => setShowIntakeConfig(true)}
+        onEnvironmentClick={() => setShowEnvironment(true)}
       />
 
       {queue.warnings.length > 0 && (
@@ -276,15 +277,15 @@ function App() {
       {/* Info modal */}
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} />
 
-      {/* Setup check modal */}
-      <SetupCheckModal isOpen={showSetupCheck} onClose={() => setShowSetupCheck(false)} />
-
       {/* Intake config modal */}
       <IntakeConfigModal
         isOpen={showIntakeConfig}
         onClose={() => setShowIntakeConfig(false)}
         onSave={() => queue.refresh()}
       />
+
+      {/* Environment modal */}
+      <EnvironmentModal isOpen={showEnvironment} onClose={() => setShowEnvironment(false)} />
 
       {/* Error toast */}
       {queue.error && (

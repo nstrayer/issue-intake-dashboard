@@ -146,6 +146,18 @@ app.get('/api/setup-check', async (_req, res) => {
 	}
 });
 
+// Environment info endpoint - quick context for orientation
+app.get('/api/environment', async (_req, res) => {
+	try {
+		const { getEnvironmentInfo } = await import('./setup-check.js');
+		const envInfo = await getEnvironmentInfo(targetRepoPath, repoConfig);
+		res.json(envInfo);
+	} catch (error) {
+		console.error('Environment info failed:', error);
+		res.status(500).json({ error: 'Failed to get environment info' });
+	}
+});
+
 // ===== REST API Endpoints for Command Center =====
 
 // Lightweight list endpoint (no bodies)
