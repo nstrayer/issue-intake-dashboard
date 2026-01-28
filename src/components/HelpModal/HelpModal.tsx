@@ -40,6 +40,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           <ShortcutRow keys={['k', '↑']} description="Previous item" />
           <ShortcutRow keys={['a']} description="Analyze selected item" />
           <ShortcutRow keys={['o']} description="Open in GitHub" />
+          <ShortcutRow keys={['c']} description="Copy prompt for Claude Code" />
           <ShortcutRow keys={['r']} description="Refresh queue" />
           <ShortcutRow keys={['Esc']} description="Close side panel" />
           <ShortcutRow keys={['?']} description="Show this help" />

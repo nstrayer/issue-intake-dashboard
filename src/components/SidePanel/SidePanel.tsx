@@ -1,7 +1,9 @@
+import { useState, useEffect, useCallback } from 'react';
 import { QueueItem, ClaudeAnalysis, formatAgeVerbose } from '../../types/intake';
 import { useItemDetails } from '../../hooks/useIntakeQueue';
 import { LabelPicker } from '../LabelPicker/LabelPicker';
 import { FollowUpConversation } from './FollowUpConversation';
+import { generateClaudeCodePrompt } from '../../utils/generateClaudeCodePrompt';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -26,6 +28,31 @@ interface SidePanelProps {
 export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel, onRequestAnalysis, onFollowUp, followUpLoading = false }: SidePanelProps) {
   // Fetch full details including body when item is selected
   const { body, isLoading: bodyLoading, error: bodyError } = useItemDetails(item);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  const handleCopyPrompt = useCallback(() => {
+    if (!item) return;
+    const prompt = generateClaudeCodePrompt(item, body, analysis);
+    navigator.clipboard.writeText(prompt);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
+  }, [item, body, analysis]);
+
+  // Keyboard shortcut for copy
+  useEffect(() => {
+    if (!item) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'c') {
+        handleCopyPrompt();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [item, handleCopyPrompt]);
 
   if (!item) {
     return (
@@ -362,6 +389,87 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
             </p>
           )}
         </Section>
+
+        {/* Continue in Claude Code section */}
+        <div className="p-4">
+          <div
+            className="p-4 rounded-lg"
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-mono font-bold"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                {'>_'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  Need more control?
+                </h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Continue in Claude Code for full flexibility with the intake workflow.
+                </p>
+                <button
+                  onClick={handleCopyPrompt}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
+                  style={{
+                    background: copyFeedback ? 'var(--success)' : 'var(--bg-elevated)',
+                    color: copyFeedback ? 'white' : 'var(--text-secondary)',
+                    border: `1px solid ${copyFeedback ? 'var(--success)' : 'var(--border-subtle)'}`
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!copyFeedback) {
+                      e.currentTarget.style.background = 'var(--bg-primary)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                      e.currentTarget.style.borderColor = 'var(--border-medium)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!copyFeedback) {
+                      e.currentTarget.style.background = 'var(--bg-elevated)';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    }
+                  }}
+                >
+                  {copyFeedback ? (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy prompt for Claude Code
+                    </>
+                  )}
+                  <kbd
+                    className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded"
+                    style={{
+                      background: copyFeedback ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                      color: copyFeedback ? 'white' : 'var(--text-muted)',
+                      border: `1px solid ${copyFeedback ? 'rgba(255,255,255,0.3)' : 'var(--border-subtle)'}`
+                    }}
+                  >
+                    c
+                  </kbd>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
