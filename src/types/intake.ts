@@ -13,6 +13,39 @@ export interface QueueItem {
 	category?: string;
 	isStale: boolean;
 	ageInDays: number;
+	ageInHours: number;
+}
+
+/**
+ * Format age for display - shows hours for same-day items, days for older items
+ */
+export function formatAge(ageInDays: number, ageInHours: number): string {
+	if (ageInDays === 0) {
+		if (ageInHours === 0) {
+			return '<1h';
+		}
+		return `${ageInHours}h`;
+	}
+	return `${ageInDays}d`;
+}
+
+/**
+ * Format age for display in verbose form (e.g., "3 hours ago", "5 days ago")
+ */
+export function formatAgeVerbose(ageInDays: number, ageInHours: number): string {
+	if (ageInDays === 0) {
+		if (ageInHours === 0) {
+			return 'less than an hour ago';
+		}
+		if (ageInHours === 1) {
+			return '1 hour ago';
+		}
+		return `${ageInHours} hours ago`;
+	}
+	if (ageInDays === 1) {
+		return '1 day ago';
+	}
+	return `${ageInDays} days ago`;
 }
 
 export interface FollowUpMessage {

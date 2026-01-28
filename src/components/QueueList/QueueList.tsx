@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { QueueItem } from '../../types/intake';
+import { QueueItem, formatAge } from '../../types/intake';
 import { IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from '../../hooks/useIntakeQueue';
 
 interface QueueListProps {
@@ -493,7 +493,7 @@ function QueueItemRow({
                 className={item.isStale ? 'font-medium' : ''}
                 style={{ color: item.isStale ? 'var(--warning)' : undefined }}
               >
-                {item.ageInDays}d
+                {formatAge(item.ageInDays, item.ageInHours)}
               </span>
               {item.isStale && (
                 <svg className="w-3 h-3" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -1,4 +1,4 @@
-import { QueueItem, ClaudeAnalysis } from '../../types/intake';
+import { QueueItem, ClaudeAnalysis, formatAgeVerbose } from '../../types/intake';
 import { useItemDetails } from '../../hooks/useIntakeQueue';
 import { LabelPicker } from '../LabelPicker/LabelPicker';
 import { FollowUpConversation } from './FollowUpConversation';
@@ -106,7 +106,7 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
             <div className="flex items-center gap-2 mt-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
               <span>@{item.author}</span>
               <span>·</span>
-              <span>{item.ageInDays} days ago</span>
+              <span>{formatAgeVerbose(item.ageInDays, item.ageInHours)}</span>
             </div>
           </div>
 

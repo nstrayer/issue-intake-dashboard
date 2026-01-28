@@ -13,6 +13,7 @@ export interface QueueItem {
   category?: string; // discussions only
   isStale: boolean;
   ageInDays: number;
+  ageInHours: number;
 }
 
 // Intake filter options - mirrors server-side definition
@@ -48,11 +49,13 @@ export interface IntakeQueue {
 
 const STALE_THRESHOLD_DAYS = 14;
 
-function calculateAge(createdAt: string): { ageInDays: number; isStale: boolean } {
+function calculateAge(createdAt: string): { ageInDays: number; ageInHours: number; isStale: boolean } {
   const created = new Date(createdAt);
   const now = new Date();
-  const ageInDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-  return { ageInDays, isStale: ageInDays >= STALE_THRESHOLD_DAYS };
+  const ageInMs = now.getTime() - created.getTime();
+  const ageInHours = Math.floor(ageInMs / (1000 * 60 * 60));
+  const ageInDays = Math.floor(ageInMs / (1000 * 60 * 60 * 24));
+  return { ageInDays, ageInHours, isStale: ageInDays >= STALE_THRESHOLD_DAYS };
 }
 
 interface GitHubIssueSummary {
@@ -109,7 +112,7 @@ export function useIntakeQueue(
 
       // Transform and unify issues + discussions
       const issueItems: QueueItem[] = data.issues.map((issue) => {
-        const { ageInDays, isStale } = calculateAge(issue.createdAt);
+        const { ageInDays, ageInHours, isStale } = calculateAge(issue.createdAt);
         return {
           id: `issue-${issue.number}`,
           type: 'issue' as const,
@@ -122,11 +125,12 @@ export function useIntakeQueue(
           // body not included in list response
           isStale,
           ageInDays,
+          ageInHours,
         };
       });
 
       const discussionItems: QueueItem[] = data.discussions.map((disc) => {
-        const { ageInDays, isStale } = calculateAge(disc.createdAt);
+        const { ageInDays, ageInHours, isStale } = calculateAge(disc.createdAt);
         return {
           id: `discussion-${disc.number}`,
           type: 'discussion' as const,
@@ -140,6 +144,7 @@ export function useIntakeQueue(
           category: disc.category?.name,
           isStale,
           ageInDays,
+          ageInHours,
         };
       });
 
