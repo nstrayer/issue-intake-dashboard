@@ -12,6 +12,7 @@ import {
 	executeQuickAction,
 	analyzeIssue,
 	followUpAnalysis,
+	generateAIFilter,
 	AuthenticationRequiredError,
 	loadClaudeSettings,
 	type ClaudeSettings,
@@ -252,6 +253,30 @@ app.post('/api/issues/:number/analyze/follow-up', async (req, res) => {
 		const isAuth = error instanceof AuthenticationRequiredError;
 		res.status(isAuth ? 401 : 500).json({
 			error: error instanceof Error ? error.message : 'Follow-up failed',
+			isAuthError: isAuth,
+		});
+	}
+});
+
+// AI filter generation endpoint
+app.post('/api/filters/ai', async (req, res) => {
+	const { query } = req.body;
+
+	if (!query || typeof query !== 'string' || query.trim() === '') {
+		res.status(400).json({ error: 'Query is required' });
+		return;
+	}
+
+	try {
+		// Fetch available labels to help Claude use exact names
+		const availableLabels = await fetchRepoLabels();
+		const result = await generateAIFilter(query, availableLabels, { claudeSettings });
+		res.json(result);
+	} catch (error) {
+		console.error('AI filter generation failed:', error);
+		const isAuth = error instanceof AuthenticationRequiredError;
+		res.status(isAuth ? 401 : 500).json({
+			error: error instanceof Error ? error.message : 'AI filter generation failed',
 			isAuthError: isAuth,
 		});
 	}

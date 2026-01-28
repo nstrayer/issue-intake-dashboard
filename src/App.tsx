@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ProgressHeader } from './components/ProgressHeader/ProgressHeader';
-import { QueueList, QueueFilters } from './components/QueueList/QueueList';
+import { QueueList, QueueFilters, FilterMode } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
 import { HelpModal } from './components/HelpModal/HelpModal';
 import { InfoModal } from './components/InfoModal/InfoModal';
 import { SetupCheckModal } from './components/SetupCheckModal/SetupCheckModal';
 import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
 import { useAnalysis } from './hooks/useAnalysis';
+import { useAIFilter } from './hooks/useAIFilter';
 import { QueueItem } from './types/intake';
 
 const DEFAULT_FILTERS: QueueFilters = {
@@ -16,15 +17,45 @@ const DEFAULT_FILTERS: QueueFilters = {
   sortBy: 'oldest',
 };
 
+// All intake filters disabled (show everything)
+const ALL_INTAKE_FILTERS_OFF: IntakeFilterOptions = {
+  excludeBacklogProject: false,
+  excludeMilestoned: false,
+  excludeTriagedLabels: false,
+  excludeStatusSet: false,
+  excludeAnswered: false,
+  excludeMaintainerResponded: false,
+};
+
 function App() {
   const [intakeFilters, setIntakeFilters] = useState<IntakeFilterOptions>(DEFAULT_INTAKE_FILTERS);
-  const queue = useIntakeQueue(intakeFilters);
+  const [includeAllItems, setIncludeAllItems] = useState(false);
+  const [savedIntakeFilters, setSavedIntakeFilters] = useState<IntakeFilterOptions>(DEFAULT_INTAKE_FILTERS);
+
+  // Use disabled filters when includeAllItems is true
+  const effectiveIntakeFilters = includeAllItems ? ALL_INTAKE_FILTERS_OFF : intakeFilters;
+  const queue = useIntakeQueue(effectiveIntakeFilters);
+
   const { analysis, analyzeItem, clearAnalysis, sendFollowUp, followUpLoading } = useAnalysis();
+  const aiFilter = useAIFilter();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
+  const [filterMode, setFilterMode] = useState<FilterMode>('standard');
   const [showHelp, setShowHelp] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showSetupCheck, setShowSetupCheck] = useState(false);
+
+  // Handle includeAllItems toggle
+  const handleIncludeAllItemsChange = useCallback((value: boolean) => {
+    if (value) {
+      // Save current filters before disabling
+      setSavedIntakeFilters(intakeFilters);
+    } else {
+      // Restore saved filters when disabling
+      setIntakeFilters(savedIntakeFilters);
+    }
+    setIncludeAllItems(value);
+  }, [intakeFilters, savedIntakeFilters]);
 
   const handleSelectItem = useCallback((item: QueueItem) => {
     setSelectedItem(item);
@@ -197,6 +228,17 @@ function App() {
             onFiltersChange={setFilters}
             intakeFilters={intakeFilters}
             onIntakeFiltersChange={setIntakeFilters}
+            filterMode={filterMode}
+            onFilterModeChange={setFilterMode}
+            aiFilter={{
+              isLoading: aiFilter.isLoading,
+              error: aiFilter.error,
+              result: aiFilter.result,
+            }}
+            onAIFilterSubmit={aiFilter.generateFilter}
+            onAIFilterClear={aiFilter.clearFilter}
+            includeAllItems={includeAllItems}
+            onIncludeAllItemsChange={handleIncludeAllItemsChange}
           />
         </div>
 

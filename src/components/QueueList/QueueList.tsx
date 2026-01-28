@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { QueueItem, formatAge } from '../../types/intake';
 import { IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from '../../hooks/useIntakeQueue';
+import { AIFilterInput } from './AIFilterInput';
+import { applyAIFilter } from '../../hooks/useAIFilter';
+import type { AIFilterResult } from '../../types/aiFilter';
+
+export type FilterMode = 'standard' | 'ai';
 
 interface QueueListProps {
   items: QueueItem[];
@@ -10,6 +15,17 @@ interface QueueListProps {
   onFiltersChange: (filters: QueueFilters) => void;
   intakeFilters: IntakeFilterOptions;
   onIntakeFiltersChange: (filters: IntakeFilterOptions) => void;
+  filterMode: FilterMode;
+  onFilterModeChange: (mode: FilterMode) => void;
+  aiFilter: {
+    isLoading: boolean;
+    error: string | null;
+    result: AIFilterResult | null;
+  };
+  onAIFilterSubmit: (query: string) => void;
+  onAIFilterClear: () => void;
+  includeAllItems: boolean;
+  onIncludeAllItemsChange: (value: boolean) => void;
 }
 
 export interface QueueFilters {
@@ -55,6 +71,13 @@ export function QueueList({
   onFiltersChange,
   intakeFilters,
   onIntakeFiltersChange,
+  filterMode,
+  onFilterModeChange,
+  aiFilter,
+  onAIFilterSubmit,
+  onAIFilterClear,
+  includeAllItems,
+  onIncludeAllItemsChange,
 }: QueueListProps) {
   const [issuesCollapsed, setIssuesCollapsed] = useState(false);
   const [discussionsCollapsed, setDiscussionsCollapsed] = useState(false);
@@ -65,17 +88,20 @@ export function QueueList({
     ([key, value]) => value !== DEFAULT_INTAKE_FILTERS[key as keyof IntakeFilterOptions]
   );
 
-  // Filter items (excluding type filter since we're separating them)
-  const filteredItems = items.filter(item => {
-    // Label filter only applies to issues (discussions don't have labels)
-    if (filters.hasLabels === 'labeled' && item.type === 'issue' && item.labels.length === 0) return false;
-    if (filters.hasLabels === 'unlabeled' && item.type === 'issue' && item.labels.length > 0) return false;
+  // Filter items based on active mode
+  const filteredItems = filterMode === 'ai' && aiFilter.result
+    ? applyAIFilter(items, aiFilter.result.criteria)
+    : items.filter(item => {
+        // Standard filter logic
+        // Label filter only applies to issues (discussions don't have labels)
+        if (filters.hasLabels === 'labeled' && item.type === 'issue' && item.labels.length === 0) return false;
+        if (filters.hasLabels === 'unlabeled' && item.type === 'issue' && item.labels.length > 0) return false;
 
-    if (filters.age === 'fresh' && item.isStale) return false;
-    if (filters.age === 'stale' && !item.isStale) return false;
-    if (filters.searchQuery && !item.title.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
-    return true;
-  });
+        if (filters.age === 'fresh' && item.isStale) return false;
+        if (filters.age === 'stale' && !item.isStale) return false;
+        if (filters.searchQuery && !item.title.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
+        return true;
+      });
 
   // Sort items
   const sortItems = (itemsToSort: QueueItem[]) => {
@@ -112,86 +138,145 @@ export function QueueList({
     <div className="flex flex-col h-full">
       {/* Filter bar */}
       <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        {/* Search and sort row */}
-        <div className="flex gap-3 mb-3">
-          <div className="relative flex-1">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-              style={{ color: 'var(--text-muted)' }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={filters.searchQuery}
-              onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
-              className="w-full pl-9 pr-3 py-2 text-sm input"
-            />
-          </div>
-          <select
-            value={filters.sortBy}
-            onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value as QueueFilters['sortBy'] })}
-            className="px-3 py-2 text-sm input cursor-pointer"
-            style={{ minWidth: '130px' }}
-          >
-            <option value="oldest">Oldest first</option>
-            <option value="newest">Newest first</option>
-          </select>
-        </div>
-
-        {/* Filter chips */}
-        <div className="flex gap-2 flex-wrap items-center">
-          <FilterChip
-            label="Unlabeled"
-            active={filters.hasLabels === 'unlabeled'}
-            onClick={() => onFiltersChange({ ...filters, hasLabels: filters.hasLabels === 'unlabeled' ? 'all' : 'unlabeled' })}
-          />
-          <FilterChip
-            label="Stale"
-            active={filters.age === 'stale'}
-            onClick={() => onFiltersChange({ ...filters, age: filters.age === 'stale' ? 'all' : 'stale' })}
-            icon={
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-          />
-
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
-
-          {/* Intake criteria toggle */}
+        {/* Mode toggle tabs */}
+        <div className="flex gap-1 mb-3 p-1 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
           <button
-            onClick={() => setIntakeFiltersExpanded(!intakeFiltersExpanded)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150"
+            onClick={() => onFilterModeChange('standard')}
+            className="flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
             style={{
-              background: hasCustomIntakeFilters ? 'var(--accent-dim)' : 'transparent',
-              color: hasCustomIntakeFilters ? 'var(--accent)' : 'var(--text-muted)',
-              border: `1px solid ${hasCustomIntakeFilters ? 'rgba(212, 165, 116, 0.3)' : 'var(--border-subtle)'}`,
+              background: filterMode === 'standard' ? 'var(--bg-secondary)' : 'transparent',
+              color: filterMode === 'standard' ? 'var(--text-primary)' : 'var(--text-muted)',
+              boxShadow: filterMode === 'standard' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+            }}
+          >
+            Standard
+          </button>
+          <button
+            onClick={() => onFilterModeChange('ai')}
+            className="flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 flex items-center justify-center gap-1.5"
+            style={{
+              background: filterMode === 'ai' ? 'var(--bg-secondary)' : 'transparent',
+              color: filterMode === 'ai' ? 'var(--text-primary)' : 'var(--text-muted)',
+              boxShadow: filterMode === 'ai' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
             }}
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+              />
             </svg>
-            Intake Criteria
-            <svg
-              className={`w-3 h-3 transition-transform duration-200 ${intakeFiltersExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            AI Filter
           </button>
         </div>
 
-        {/* Expandable intake filters panel */}
-        {intakeFiltersExpanded && (
+        {filterMode === 'ai' ? (
+          /* AI Filter mode */
+          <AIFilterInput
+            isLoading={aiFilter.isLoading}
+            error={aiFilter.error}
+            result={aiFilter.result}
+            onSubmit={onAIFilterSubmit}
+            onClear={onAIFilterClear}
+            includeAllItems={includeAllItems}
+            onIncludeAllItemsChange={onIncludeAllItemsChange}
+          />
+        ) : (
+          /* Standard filter mode */
+          <>
+            {/* Search and sort row */}
+            <div className="flex gap-3 mb-3">
+              <div className="relative flex-1">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                  style={{ color: 'var(--text-muted)' }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search items..."
+                  value={filters.searchQuery}
+                  onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-sm input"
+                />
+              </div>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value as QueueFilters['sortBy'] })}
+                className="px-3 py-2 text-sm input cursor-pointer"
+                style={{ minWidth: '130px' }}
+              >
+                <option value="oldest">Oldest first</option>
+                <option value="newest">Newest first</option>
+              </select>
+            </div>
+
+            {/* Filter chips */}
+            <div className="flex gap-2 flex-wrap items-center">
+              <FilterChip
+                label="Unlabeled"
+                active={filters.hasLabels === 'unlabeled'}
+                onClick={() => onFiltersChange({ ...filters, hasLabels: filters.hasLabels === 'unlabeled' ? 'all' : 'unlabeled' })}
+              />
+              <FilterChip
+                label="Stale"
+                active={filters.age === 'stale'}
+                onClick={() => onFiltersChange({ ...filters, age: filters.age === 'stale' ? 'all' : 'stale' })}
+                icon={
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+              />
+
+              <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
+
+              {/* Show all items toggle */}
+              <FilterChip
+                label="Show All"
+                active={includeAllItems}
+                onClick={() => onIncludeAllItemsChange(!includeAllItems)}
+                icon={
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                }
+              />
+
+              {/* Intake criteria toggle */}
+              <button
+                onClick={() => setIntakeFiltersExpanded(!intakeFiltersExpanded)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150"
+                style={{
+                  background: hasCustomIntakeFilters ? 'var(--accent-dim)' : 'transparent',
+                  color: hasCustomIntakeFilters ? 'var(--accent)' : 'var(--text-muted)',
+                  border: `1px solid ${hasCustomIntakeFilters ? 'rgba(212, 165, 116, 0.3)' : 'var(--border-subtle)'}`,
+                }}
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Intake Criteria
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${intakeFiltersExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Expandable intake filters panel */}
+            {intakeFiltersExpanded && (
           <div
             className="mt-3 p-3 rounded-lg animate-slideUp"
             style={{ background: 'var(--bg-tertiary)' }}
@@ -252,6 +337,8 @@ export function QueueList({
               </div>
             </div>
           </div>
+            )}
+          </>
         )}
       </div>
 

@@ -4,6 +4,8 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { INTAKE_SYSTEM_PROMPT, CATCH_UP_PROMPT } from './prompts/intake.js';
 import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage } from './prompts/analysis.js';
+import { FILTER_SYSTEM_PROMPT, buildFilterPrompt } from './prompts/filter.js';
+import type { AIFilterResult } from './types/aiFilter.js';
 
 export interface ClaudeSettings {
 	env?: Record<string, string>;
@@ -298,6 +300,61 @@ export async function followUpAnalysis(
 		}
 
 		return fullResponse.trim();
+	} catch (error) {
+		if (isAuthError(error)) {
+			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
+		}
+		throw error;
+	}
+}
+
+export async function generateAIFilter(
+	queryText: string,
+	availableLabels: string[],
+	options: AgentOptions = {}
+): Promise<AIFilterResult> {
+	const { claudeSettings } = options;
+
+	const prompt = buildFilterPrompt(queryText, availableLabels);
+	let fullResponse = '';
+
+	try {
+		for await (const message of query({
+			prompt,
+			options: {
+				allowedTools: [],
+				appendSystemPrompt: FILTER_SYSTEM_PROMPT,
+				maxTurns: 1,
+				env: buildEnv(claudeSettings),
+			},
+		})) {
+			if (message.type === 'assistant') {
+				for (const block of message.message.content) {
+					if (block.type === 'text') {
+						fullResponse += block.text;
+					}
+				}
+			}
+		}
+
+		// Extract JSON from response
+		const jsonMatch = fullResponse.match(/```json\s*([\s\S]*?)```/);
+		if (jsonMatch) {
+			const parsed = JSON.parse(jsonMatch[1]);
+			return {
+				criteria: parsed.criteria || {},
+				explanation: parsed.explanation || 'Filter applied',
+				originalQuery: queryText,
+			};
+		} else {
+			// Try parsing the whole response as JSON
+			const parsed = JSON.parse(fullResponse.trim());
+			return {
+				criteria: parsed.criteria || {},
+				explanation: parsed.explanation || 'Filter applied',
+				originalQuery: queryText,
+			};
+		}
 	} catch (error) {
 		if (isAuthError(error)) {
 			throw new AuthenticationRequiredError(claudeSettings?.awsAuthRefresh);
