@@ -1,0 +1,3 @@
+- Come up with a better distinction between discussions and issues. Two separate panels on the left side.
+- Create a UI for the filters that we are using to choose un-handled items. Should default to the current filters but allow the user to expand in case they want to see more items to do something like verify the fetching is actually working.
+- Time indicators just say "0d" for today. For items on the same day we should say how long it has been since created. E.g. "3h ago".
