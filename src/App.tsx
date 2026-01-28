@@ -247,6 +247,7 @@ function App() {
             onAIFilterClear={aiFilter.clearFilter}
             includeAllItems={includeAllItems}
             onIncludeAllItemsChange={handleIncludeAllItemsChange}
+            isLoading={queue.isLoading}
           />
         </div>
 

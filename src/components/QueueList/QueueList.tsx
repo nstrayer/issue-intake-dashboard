@@ -26,6 +26,7 @@ interface QueueListProps {
   onAIFilterClear: () => void;
   includeAllItems: boolean;
   onIncludeAllItemsChange: (value: boolean) => void;
+  isLoading?: boolean;
 }
 
 export type SortOrder = 'oldest' | 'newest';
@@ -81,6 +82,7 @@ export function QueueList({
   onAIFilterClear,
   includeAllItems,
   onIncludeAllItemsChange,
+  isLoading = false,
 }: QueueListProps) {
   const [issuesCollapsed, setIssuesCollapsed] = useState(false);
   const [discussionsCollapsed, setDiscussionsCollapsed] = useState(false);
@@ -351,6 +353,7 @@ export function QueueList({
           emptyMessage={items.length === 0 ? 'No issues in queue' : 'No issues match filters'}
           sortBy={filters.issuesSortBy}
           onSortChange={(sortBy) => onFiltersChange({ ...filters, issuesSortBy: sortBy })}
+          isLoading={isLoading}
         />
 
         {/* Divider */}
@@ -372,6 +375,7 @@ export function QueueList({
           emptyMessage={items.length === 0 ? 'No discussions in queue' : 'No discussions match filters'}
           sortBy={filters.discussionsSortBy}
           onSortChange={(sortBy) => onFiltersChange({ ...filters, discussionsSortBy: sortBy })}
+          isLoading={isLoading}
         />
       </div>
 
@@ -432,6 +436,7 @@ function TypePanel({
   emptyMessage,
   sortBy,
   onSortChange,
+  isLoading = false,
 }: {
   title: string;
   type: 'issue' | 'discussion';
@@ -444,6 +449,7 @@ function TypePanel({
   emptyMessage: string;
   sortBy: SortOrder;
   onSortChange: (sortBy: SortOrder) => void;
+  isLoading?: boolean;
 }) {
   const typeColor = type === 'issue' ? 'var(--success)' : 'var(--info)';
 
@@ -502,8 +508,57 @@ function TypePanel({
 
       {/* Panel content */}
       {!collapsed && (
-        <div className="flex-1 overflow-y-auto">
-          {items.length === 0 ? (
+        <div className="flex-1 overflow-y-auto relative">
+          {isLoading ? (
+            // Show loading overlay - keeps existing items visible if any
+            <>
+              <div
+                className="absolute inset-0 flex items-center justify-center z-10"
+                style={{ background: 'var(--bg-secondary)', opacity: items.length > 0 ? 0.7 : 1 }}
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    style={{ color: 'var(--text-muted)' }}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  {items.length === 0 && (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Loading...
+                    </p>
+                  )}
+                </div>
+              </div>
+              {items.length > 0 && (
+                <div className="py-1">
+                  {items.map((item, index) => (
+                    <QueueItemRow
+                      key={item.id}
+                      item={item}
+                      isSelected={item.id === selectedId}
+                      onClick={() => onSelect(item)}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : items.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {emptyMessage}
