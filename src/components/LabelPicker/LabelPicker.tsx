@@ -32,79 +32,147 @@ export function LabelPicker({ currentLabels, onApply, onRemove }: LabelPickerPro
     <div className="space-y-3">
       {/* Current labels */}
       {currentLabels.length > 0 && (
-        <div>
-          <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">Current Labels</h4>
-          <div className="flex gap-1 flex-wrap">
-            {currentLabels.map(label => (
-              <span
-                key={label}
-                className="group px-2 py-1 bg-gray-700 text-gray-300 rounded text-sm flex items-center gap-1"
+        <div className="flex gap-1.5 flex-wrap">
+          {currentLabels.map(label => (
+            <span
+              key={label}
+              className="group flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md transition-all duration-150"
+              style={{
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-subtle)'
+              }}
+            >
+              {label}
+              <button
+                onClick={() => onRemove(label)}
+                className="w-4 h-4 flex items-center justify-center rounded opacity-50 group-hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--error)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
               >
-                {label}
-                <button
-                  onClick={() => onRemove(label)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-opacity"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
-      {/* Add label */}
-      <div>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-blue-400 hover:text-blue-300"
+      {/* Add label toggle */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-1.5 text-sm font-medium transition-colors duration-150"
+        style={{ color: 'var(--accent)' }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--accent-muted)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--accent)';
+        }}
+      >
+        <svg
+          className="w-4 h-4 transition-transform duration-150"
+          style={{ transform: isExpanded ? 'rotate(45deg)' : 'rotate(0deg)' }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
         >
-          {isExpanded ? '− Hide label picker' : '+ Add label'}
-        </button>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {isExpanded ? 'Close picker' : 'Add label'}
+      </button>
 
-        {isExpanded && (
-          <div className="mt-2 p-3 bg-gray-800 rounded-lg">
+      {/* Expanded picker */}
+      {isExpanded && (
+        <div
+          className="p-3 rounded-lg animate-slideUp"
+          style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
+          {/* Search input */}
+          <div className="relative mb-3">
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: 'var(--text-muted)' }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               type="text"
               placeholder="Search labels..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-900 border border-gray-700 rounded text-white text-sm mb-2 focus:outline-none focus:border-blue-500"
+              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)'
+              }}
+              autoFocus
             />
-
-            {/* Quick access sections */}
-            {!searchQuery && (
-              <div className="space-y-2">
-                <LabelSection title="Area" labels={AREA_LABELS} currentLabels={currentLabels} onApply={onApply} />
-                <LabelSection title="Type" labels={TYPE_LABELS} currentLabels={currentLabels} onApply={onApply} />
-                <LabelSection title="Status" labels={STATUS_LABELS} currentLabels={currentLabels} onApply={onApply} />
-              </div>
-            )}
-
-            {/* Search results */}
-            {searchQuery && (
-              <div className="flex gap-1 flex-wrap">
-                {filteredLabels.length === 0 ? (
-                  <span className="text-gray-500 text-sm">No matching labels</span>
-                ) : (
-                  filteredLabels.map(label => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        onApply(label);
-                        setSearchQuery('');
-                      }}
-                      className="px-2 py-1 bg-blue-900/50 text-blue-400 hover:bg-blue-800 rounded text-sm transition-colors"
-                    >
-                      + {label}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
           </div>
-        )}
-      </div>
+
+          {/* Quick access sections */}
+          {!searchQuery && (
+            <div className="space-y-3">
+              <LabelSection title="Area" labels={AREA_LABELS} currentLabels={currentLabels} onApply={onApply} />
+              <LabelSection title="Type" labels={TYPE_LABELS} currentLabels={currentLabels} onApply={onApply} />
+              <LabelSection title="Status" labels={STATUS_LABELS} currentLabels={currentLabels} onApply={onApply} />
+            </div>
+          )}
+
+          {/* Search results */}
+          {searchQuery && (
+            <div className="flex gap-1.5 flex-wrap">
+              {filteredLabels.length === 0 ? (
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  No matching labels
+                </span>
+              ) : (
+                filteredLabels.map(label => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      onApply(label);
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all duration-150"
+                    style={{
+                      background: 'var(--accent-dim)',
+                      color: 'var(--accent)',
+                      border: '1px solid rgba(212, 165, 116, 0.2)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(212, 165, 116, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-dim)';
+                    }}
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    {label}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -125,13 +193,28 @@ function LabelSection({
 
   return (
     <div>
-      <h5 className="text-xs text-gray-500 mb-1">{title}</h5>
-      <div className="flex gap-1 flex-wrap">
+      <h5 className="text-xs font-medium uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
+        {title}
+      </h5>
+      <div className="flex gap-1.5 flex-wrap">
         {available.map(label => (
           <button
             key={label}
             onClick={() => onApply(label)}
-            className="px-2 py-0.5 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded text-xs transition-colors"
+            className="px-2 py-1 text-xs rounded-md transition-all duration-150"
+            style={{
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.color = 'var(--accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
           >
             {label.replace(/^(area|type|status):/, '')}
           </button>
