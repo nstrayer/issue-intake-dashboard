@@ -6,6 +6,7 @@ interface ProgressHeaderProps {
   lastUpdated: Date | null;
   onRefresh: () => void;
   onHelpClick: () => void;
+  onSetupCheckClick: () => void;
 }
 
 export function ProgressHeader({
@@ -16,6 +17,7 @@ export function ProgressHeader({
   lastUpdated,
   onRefresh,
   onHelpClick,
+  onSetupCheckClick,
 }: ProgressHeaderProps) {
   const remainingCount = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -60,6 +62,15 @@ export function ProgressHeader({
                 Updated {lastUpdated.toLocaleTimeString()}
               </span>
             )}
+            <button
+              onClick={onSetupCheckClick}
+              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              title="Check setup"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
             <button
               onClick={onHelpClick}
               className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"

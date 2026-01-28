@@ -27,6 +27,7 @@ import {
 	fetchRepoLabels,
 	searchDuplicates,
 } from './github.js';
+import { runSetupChecks } from './setup-check.js';
 
 const app = express();
 const server = createServer(app);
@@ -55,6 +56,17 @@ app.use(express.json());
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
 	res.json({ status: 'ok' });
+});
+
+// Setup check endpoint
+app.get('/api/setup-check', async (_req, res) => {
+	try {
+		const result = await runSetupChecks(positronRepoPath);
+		res.json(result);
+	} catch (error) {
+		console.error('Setup check failed:', error);
+		res.status(500).json({ error: 'Setup check failed' });
+	}
 });
 
 // ===== REST API Endpoints for Command Center =====
