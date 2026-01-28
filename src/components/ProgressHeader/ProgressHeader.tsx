@@ -7,6 +7,7 @@ interface ProgressHeaderProps {
   onRefresh: () => void;
   onHelpClick: () => void;
   onSetupCheckClick: () => void;
+  onInfoClick: () => void;
 }
 
 export function ProgressHeader({
@@ -18,6 +19,7 @@ export function ProgressHeader({
   onRefresh,
   onHelpClick,
   onSetupCheckClick,
+  onInfoClick,
 }: ProgressHeaderProps) {
   const remainingCount = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -101,40 +103,58 @@ export function ProgressHeader({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {lastUpdated && (
-            <span className="text-xs mr-2" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
 
-          <IconButton
-            onClick={onSetupCheckClick}
-            title="Check setup"
+          <div className="h-6 w-px" style={{ background: 'var(--border-subtle)' }} />
+
+          <HeaderButton
+            onClick={onInfoClick}
+            label="About"
             icon={
-              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          />
+
+          <HeaderButton
+            onClick={onSetupCheckClick}
+            label="Setup"
+            icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
           />
 
-          <IconButton
+          <HeaderButton
             onClick={onHelpClick}
-            title="Keyboard shortcuts (?)"
-            icon={<span className="text-sm font-mono">?</span>}
+            label="Help"
+            shortcut="?"
+            icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
           />
 
-          <IconButton
+          <HeaderButton
             onClick={onRefresh}
             disabled={isLoading}
-            title="Refresh (r)"
+            label="Refresh"
+            shortcut="R"
             icon={
               <svg
-                className={`w-[18px] h-[18px] ${isLoading ? 'spinner' : ''}`}
+                className={`w-4 h-4 ${isLoading ? 'spinner' : ''}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
-                strokeWidth={1.75}
+                strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -146,37 +166,52 @@ export function ProgressHeader({
   );
 }
 
-function IconButton({
+function HeaderButton({
   onClick,
   disabled,
-  title,
+  label,
+  shortcut,
   icon
 }: {
   onClick: () => void;
   disabled?: boolean;
-  title: string;
+  label: string;
+  shortcut?: string;
   icon: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 disabled:opacity-40"
+      className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 disabled:opacity-40"
       style={{
-        color: 'var(--text-muted)',
-        background: 'transparent'
+        color: 'var(--text-secondary)',
+        background: 'var(--bg-tertiary)'
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--bg-tertiary)';
+        e.currentTarget.style.background = 'var(--bg-elevated)';
         e.currentTarget.style.color = 'var(--text-primary)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent';
-        e.currentTarget.style.color = 'var(--text-muted)';
+        e.currentTarget.style.background = 'var(--bg-tertiary)';
+        e.currentTarget.style.color = 'var(--text-secondary)';
       }}
-      title={title}
+      title={shortcut ? `${label} (${shortcut})` : label}
     >
       {icon}
+      <span className="text-sm font-medium">{label}</span>
+      {shortcut && (
+        <kbd
+          className="text-xs px-1.5 py-0.5 rounded"
+          style={{
+            background: 'var(--bg-primary)',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
+          {shortcut}
+        </kbd>
+      )}
     </button>
   );
 }

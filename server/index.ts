@@ -26,7 +26,6 @@ import {
 	setProjectStatus,
 	fetchRepoLabels,
 	searchDuplicates,
-	DEFAULT_INTAKE_FILTERS,
 	type IntakeFilterOptions,
 } from './github.js';
 import { runSetupChecks } from './setup-check.js';
@@ -84,6 +83,7 @@ app.get('/api/intake', async (req, res) => {
 			excludeTriagedLabels: req.query.excludeTriagedLabels !== 'false',
 			excludeStatusSet: req.query.excludeStatusSet !== 'false',
 			excludeAnswered: req.query.excludeAnswered !== 'false',
+			excludeMaintainerResponded: req.query.excludeMaintainerResponded !== 'false',
 		};
 
 		const data = await fetchIntakeQueue(filterOptions);

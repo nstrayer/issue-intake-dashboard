@@ -41,6 +41,10 @@ const INTAKE_FILTER_LABELS: Record<keyof IntakeFilterOptions, { label: string; d
     label: 'Hide answered',
     description: 'Discussions that have been answered',
   },
+  excludeMaintainerResponded: {
+    label: 'Hide maintainer-responded',
+    description: 'Discussions where a maintainer replied but no user follow-up',
+  },
 };
 
 export function QueueList({
@@ -239,6 +243,11 @@ export function QueueList({
                   filterKey="excludeAnswered"
                   checked={intakeFilters.excludeAnswered}
                   onChange={() => handleIntakeFilterToggle('excludeAnswered')}
+                />
+                <IntakeFilterToggle
+                  filterKey="excludeMaintainerResponded"
+                  checked={intakeFilters.excludeMaintainerResponded}
+                  onChange={() => handleIntakeFilterToggle('excludeMaintainerResponded')}
                 />
               </div>
             </div>

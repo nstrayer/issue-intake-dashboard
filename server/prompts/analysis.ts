@@ -26,7 +26,13 @@ When analyzing, consider:
 1. What area of Positron does this affect?
 2. Is this a bug, feature request, question, or docs issue?
 3. Have we seen similar issues before?
-4. What information might we need from the reporter?`;
+4. What information might we need from the reporter?
+
+You have access to the Bash tool and can search for related issues using the gh CLI:
+- Search issues: gh issue list --repo posit-dev/positron --search "<query>" --state all --limit 10
+- Search with labels: gh issue list --repo posit-dev/positron --label "<label>" --state all --limit 10
+
+IMPORTANT: You CAN run read-only search commands but CANNOT modify issues.`;
 
 export function buildAnalysisPrompt(issue: {
   number: number;

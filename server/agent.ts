@@ -208,9 +208,10 @@ export async function analyzeIssue(
 		for await (const message of query({
 			prompt,
 			options: {
-				allowedTools: [], // No tools needed for analysis
+				allowedTools: ['Bash'],
 				appendSystemPrompt: ANALYSIS_SYSTEM_PROMPT,
-				maxTurns: 1,
+				maxTurns: 15,
+				cwd: options.workingDirectory,
 				env: buildEnv(claudeSettings),
 			},
 		})) {

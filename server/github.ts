@@ -20,6 +20,7 @@ export interface GitHubDiscussionSummary {
   category: { name: string };
   url: string;
   answerChosenAt: string | null;
+  hasMaintainerResponse: boolean;
 }
 
 // Full types for detail view (includes bodies)
@@ -48,6 +49,7 @@ export interface IntakeFilterOptions {
   excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
   // Discussions
   excludeAnswered: boolean;        // Exclude answered discussions
+  excludeMaintainerResponded: boolean;  // Exclude discussions where maintainers responded but no user follow-up
 }
 
 export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
@@ -56,6 +58,7 @@ export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
   excludeTriagedLabels: true,
   excludeStatusSet: true,
   excludeAnswered: true,
+  excludeMaintainerResponded: true,
 };
 
 const REPO = 'posit-dev/positron';
@@ -312,11 +315,36 @@ query GetOpenDiscussions($owner: String!, $name: String!) {
         url
         category { name }
         answer { id }
+        comments(first: 20) {
+          nodes {
+            author { login }
+            authorAssociation
+            replies(first: 10) {
+              nodes {
+                author { login }
+                authorAssociation
+              }
+            }
+          }
+        }
       }
     }
   }
 }
 `;
+
+interface GraphQLCommentReply {
+  author: { login: string } | null;
+  authorAssociation: string;
+}
+
+interface GraphQLDiscussionComment {
+  author: { login: string } | null;
+  authorAssociation: string;
+  replies: {
+    nodes: GraphQLCommentReply[];
+  } | null;
+}
 
 interface GraphQLDiscussionNode {
   number: number;
@@ -326,7 +354,13 @@ interface GraphQLDiscussionNode {
   url: string;
   category: { name: string } | null;
   answer: { id: string } | null;
+  comments: {
+    nodes: GraphQLDiscussionComment[];
+  } | null;
 }
+
+// Maintainer associations in GitHub
+const MAINTAINER_ASSOCIATIONS = ['MEMBER', 'OWNER', 'COLLABORATOR'];
 
 async function fetchOpenDiscussions(
   filterOptions: IntakeFilterOptions
@@ -347,30 +381,49 @@ async function fetchOpenDiscussions(
     const data = JSON.parse(result);
     const discussions: GraphQLDiscussionNode[] = data.data?.repository?.discussions?.nodes || [];
 
-    // If not excluding answered, filter client-side (the modified query returns all)
-    const filteredDiscussions = filterOptions.excludeAnswered
-      ? discussions
-      : discussions; // No additional filtering needed
+    // Check each discussion for maintainer responses (in comments or replies)
+    const discussionsWithMaintainerInfo = discussions.map((disc) => {
+      const hasMaintainerResponse = disc.comments?.nodes?.some((comment) => {
+        // Check if the top-level comment is from a maintainer
+        if (MAINTAINER_ASSOCIATIONS.includes(comment.authorAssociation)) {
+          return true;
+        }
+        // Check if any reply within this comment thread is from a maintainer
+        return comment.replies?.nodes?.some(
+          (reply) => MAINTAINER_ASSOCIATIONS.includes(reply.authorAssociation)
+        ) ?? false;
+      }) ?? false;
 
-    return filteredDiscussions.map((disc) => ({
-      number: disc.number,
-      title: disc.title,
-      author: { login: disc.author?.login || 'unknown' },
-      createdAt: disc.createdAt,
-      category: { name: disc.category?.name || 'General' },
-      url: disc.url,
-      answerChosenAt: disc.answer ? new Date().toISOString() : null
-    }));
+      return {
+        number: disc.number,
+        title: disc.title,
+        author: { login: disc.author?.login || 'unknown' },
+        createdAt: disc.createdAt,
+        category: { name: disc.category?.name || 'General' },
+        url: disc.url,
+        answerChosenAt: disc.answer ? new Date().toISOString() : null,
+        hasMaintainerResponse,
+      };
+    });
+
+    // Filter out discussions with maintainer responses if option is enabled
+    if (filterOptions.excludeMaintainerResponded) {
+      return discussionsWithMaintainerInfo.filter((disc) => !disc.hasMaintainerResponse);
+    }
+
+    return discussionsWithMaintainerInfo;
   } catch (error) {
     console.error('Failed to fetch discussions via GraphQL:', error);
-    // Fallback to REST API
+    // Fallback to REST API (can't check maintainer responses in this path)
     try {
       const result = await execGitHub([
         'api',
         `repos/${REPO}/discussions`,
         '--jq', '[.[] | select(.answer == null) | {number, title, author: .user.login, createdAt: .created_at, category: .category.name, url: .html_url, answerChosenAt: .answer_chosen_at}] | .[0:50]'
       ]);
-      return JSON.parse(result || '[]');
+      const discussions = JSON.parse(result || '[]');
+      // REST API fallback doesn't have comment data, so we can't determine maintainer responses
+      return discussions.map((d: Record<string, unknown>) => ({ ...d, hasMaintainerResponse: false }));
     } catch {
       // If discussions API fails, return empty array
       console.error('Discussions API not available');
@@ -415,6 +468,18 @@ export async function fetchDiscussionDetails(discussionNumber: number): Promise<
         body
         category { name }
         answer { id }
+        comments(first: 20) {
+          nodes {
+            author { login }
+            authorAssociation
+            replies(first: 10) {
+              nodes {
+                author { login }
+                authorAssociation
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -435,6 +500,19 @@ export async function fetchDiscussionDetails(discussionNumber: number): Promise<
     throw new Error(`Discussion #${discussionNumber} not found`);
   }
 
+  const hasMaintainerResponse = disc.comments?.nodes?.some(
+    (comment: { authorAssociation: string; replies?: { nodes: { authorAssociation: string }[] } }) => {
+      // Check if the top-level comment is from a maintainer
+      if (MAINTAINER_ASSOCIATIONS.includes(comment.authorAssociation)) {
+        return true;
+      }
+      // Check if any reply within this comment thread is from a maintainer
+      return comment.replies?.nodes?.some(
+        (reply) => MAINTAINER_ASSOCIATIONS.includes(reply.authorAssociation)
+      ) ?? false;
+    }
+  ) ?? false;
+
   return {
     number: disc.number,
     title: disc.title,
@@ -443,7 +521,8 @@ export async function fetchDiscussionDetails(discussionNumber: number): Promise<
     category: { name: disc.category?.name || 'General' },
     url: disc.url,
     body: disc.body || '',
-    answerChosenAt: disc.answer ? new Date().toISOString() : null
+    answerChosenAt: disc.answer ? new Date().toISOString() : null,
+    hasMaintainerResponse,
   };
 }
 

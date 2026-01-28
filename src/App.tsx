@@ -3,6 +3,7 @@ import { ProgressHeader } from './components/ProgressHeader/ProgressHeader';
 import { QueueList, QueueFilters } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
 import { HelpModal } from './components/HelpModal/HelpModal';
+import { InfoModal } from './components/InfoModal/InfoModal';
 import { SetupCheckModal } from './components/SetupCheckModal/SetupCheckModal';
 import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
 import { useAnalysis } from './hooks/useAnalysis';
@@ -22,6 +23,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [showHelp, setShowHelp] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [showSetupCheck, setShowSetupCheck] = useState(false);
 
   const handleSelectItem = useCallback((item: QueueItem) => {
@@ -113,6 +115,7 @@ function App() {
         case 'Escape':
           handleClosePanel();
           setShowHelp(false);
+          setShowInfo(false);
           break;
         case 'o':
           if (selectedItem) {
@@ -152,6 +155,7 @@ function App() {
         lastUpdated={queue.fetchedAt}
         onRefresh={queue.refresh}
         onHelpClick={() => setShowHelp(true)}
+        onInfoClick={() => setShowInfo(true)}
         onSetupCheckClick={() => setShowSetupCheck(true)}
       />
 
@@ -219,6 +223,9 @@ function App() {
 
       {/* Help modal */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Info modal */}
+      <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} />
 
       {/* Setup check modal */}
       <SetupCheckModal isOpen={showSetupCheck} onClose={() => setShowSetupCheck(false)} />

@@ -25,6 +25,7 @@ export interface IntakeFilterOptions {
   excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
   // Discussions
   excludeAnswered: boolean;        // Exclude answered discussions
+  excludeMaintainerResponded: boolean;  // Exclude discussions where maintainers responded but no user follow-up
 }
 
 export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
@@ -33,6 +34,7 @@ export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
   excludeTriagedLabels: true,
   excludeStatusSet: true,
   excludeAnswered: true,
+  excludeMaintainerResponded: true,
 };
 
 export interface IntakeQueue {
