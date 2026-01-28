@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface LabelPickerProps {
   currentLabels: string[];
@@ -6,27 +6,41 @@ interface LabelPickerProps {
   onRemove: (label: string) => void;
 }
 
-// Common labels for the Positron repo
-const AREA_LABELS = [
-  'area:editor', 'area:console', 'area:variables', 'area:plots',
-  'area:connections', 'area:help', 'area:data-explorer', 'area:notebooks',
-  'area:extensions', 'area:r', 'area:python', 'area:infrastructure',
-];
-
-const TYPE_LABELS = ['type:bug', 'type:enhancement', 'type:question', 'type:docs'];
-
-const STATUS_LABELS = ['status:triaged', 'status:needs-info', 'status:blocked'];
-
 export function LabelPicker({ currentLabels, onApply, onRemove }: LabelPickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [allLabels, setAllLabels] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const allLabels = [...AREA_LABELS, ...TYPE_LABELS, ...STATUS_LABELS];
+  // Fetch labels from API when picker is expanded
+  useEffect(() => {
+    if (isExpanded && allLabels.length === 0) {
+      setIsLoading(true);
+      fetch('/api/labels')
+        .then(res => res.json())
+        .then(data => {
+          setAllLabels(data.labels || []);
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [isExpanded, allLabels.length]);
+
   const availableLabels = allLabels.filter(l => !currentLabels.includes(l));
 
   const filteredLabels = searchQuery
     ? availableLabels.filter(l => l.toLowerCase().includes(searchQuery.toLowerCase()))
     : availableLabels;
+
+  // Group labels by prefix for better organization
+  const groupedLabels = filteredLabels.reduce((acc, label) => {
+    const prefix = label.includes(':') ? label.split(':')[0] : 'other';
+    if (!acc[prefix]) acc[prefix] = [];
+    acc[prefix].push(label);
+    return acc;
+  }, {} as Record<string, string[]>);
 
   return (
     <div className="space-y-3">
@@ -125,24 +139,45 @@ export function LabelPicker({ currentLabels, onApply, onRemove }: LabelPickerPro
             />
           </div>
 
-          {/* Quick access sections */}
-          {!searchQuery && (
-            <div className="space-y-3">
-              <LabelSection title="Area" labels={AREA_LABELS} currentLabels={currentLabels} onApply={onApply} />
-              <LabelSection title="Type" labels={TYPE_LABELS} currentLabels={currentLabels} onApply={onApply} />
-              <LabelSection title="Status" labels={STATUS_LABELS} currentLabels={currentLabels} onApply={onApply} />
+          {/* Loading state */}
+          {isLoading && (
+            <div className="flex items-center gap-2 py-2">
+              <svg className="w-4 h-4 spinner" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading labels...</span>
+            </div>
+          )}
+
+          {/* Labels grouped by prefix */}
+          {!isLoading && !searchQuery && (
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {Object.entries(groupedLabels).map(([prefix, labels]) => (
+                <LabelSection
+                  key={prefix}
+                  title={prefix}
+                  labels={labels}
+                  currentLabels={currentLabels}
+                  onApply={onApply}
+                />
+              ))}
+              {Object.keys(groupedLabels).length === 0 && (
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  No labels available
+                </span>
+              )}
             </div>
           )}
 
           {/* Search results */}
-          {searchQuery && (
-            <div className="flex gap-1.5 flex-wrap">
+          {!isLoading && searchQuery && (
+            <div className="flex gap-1.5 flex-wrap max-h-64 overflow-y-auto">
               {filteredLabels.length === 0 ? (
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   No matching labels
                 </span>
               ) : (
-                filteredLabels.map(label => (
+                filteredLabels.slice(0, 20).map(label => (
                   <button
                     key={label}
                     onClick={() => {
@@ -199,7 +234,7 @@ function LabelSection({
         {title}
       </h5>
       <div className="flex gap-1.5 flex-wrap">
-        {available.map(label => (
+        {available.slice(0, 15).map(label => (
           <button
             key={label}
             onClick={() => onApply(label)}
@@ -218,9 +253,14 @@ function LabelSection({
               e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
-            {label.replace(/^(area|type|status):/, '')}
+            {label.includes(':') ? label.split(':')[1] : label}
           </button>
         ))}
+        {available.length > 15 && (
+          <span className="px-2 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+            +{available.length - 15} more
+          </span>
+        )}
       </div>
     </div>
   );

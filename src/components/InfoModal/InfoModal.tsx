@@ -31,14 +31,14 @@ export function InfoModal({ isOpen, onClose }: InfoModalProps) {
             </svg>
           </div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-            About Issue Intake
+            About Triage Sidekick
           </h2>
         </div>
 
         <div className="space-y-5">
           <InfoSection
             title="What is this?"
-            content="Issue Intake is a triage dashboard for reviewing GitHub issues and discussions. It helps maintainers process incoming items by providing AI-powered analysis and organization tools."
+            content="Triage Sidekick is your AI-in-the-loop dashboard for reviewing GitHub issues and discussions. It helps maintainers process incoming items by providing AI-powered analysis and organization tools."
           />
 
           <InfoSection
@@ -48,7 +48,7 @@ export function InfoModal({ isOpen, onClose }: InfoModalProps) {
             <ul className="mt-2 space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <li className="flex items-start gap-2">
                 <span style={{ color: 'var(--accent)' }}>•</span>
-                <span><strong>Multi-turn analysis</strong> — Issue content is sent to Claude with a system prompt containing the Positron label taxonomy. Claude can search for duplicates via <code className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--bg-tertiary)' }}>gh</code> CLI, then returns structured JSON with summary, suggested labels, found duplicates, and draft response.</span>
+                <span><strong>Multi-turn analysis</strong> — Issue content is sent to Claude with a system prompt for the target repository. Claude can search for duplicates via <code className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--bg-tertiary)' }}>gh</code> CLI, then returns structured JSON with summary, suggested labels, found duplicates, and draft response.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span style={{ color: 'var(--accent)' }}>•</span>

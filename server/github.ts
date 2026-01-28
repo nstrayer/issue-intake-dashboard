@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { type RepoConfig, getCachedRepoConfig, isDefaultPositronRepo } from './config.js';
 
 // Lightweight types for list view (no bodies)
 export interface GitHubIssueSummary {
@@ -43,13 +44,19 @@ export interface IntakeQueueData {
 // Intake filter options - all default to true (filter active)
 export interface IntakeFilterOptions {
   // Issues
-  excludeBacklogProject: boolean;  // Exclude items in "Positron Backlog" project
+  excludeBacklogProject: boolean;  // Exclude items in backlog project
   excludeMilestoned: boolean;      // Exclude items with milestones
   excludeTriagedLabels: boolean;   // Exclude items with duplicate/wontfix/invalid labels
-  excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
+  excludeStatusSet: boolean;       // Exclude items with Status field set in main project
   // Discussions
   excludeAnswered: boolean;        // Exclude answered discussions
   excludeMaintainerResponded: boolean;  // Exclude discussions where maintainers responded but no user follow-up
+}
+
+// Project configuration for filtering
+export interface ProjectFilterConfig {
+  backlogProjectName?: string;  // e.g., "Positron Backlog"
+  mainProjectName?: string;     // e.g., "Positron"
 }
 
 export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
@@ -61,20 +68,32 @@ export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
   excludeMaintainerResponded: true,
 };
 
-const REPO = 'posit-dev/positron';
-const REPO_OWNER = 'posit-dev';
-const REPO_NAME = 'positron';
+// Default project config for Positron (backward compatibility)
+const POSITRON_PROJECT_CONFIG: ProjectFilterConfig = {
+  backlogProjectName: 'Positron Backlog',
+  mainProjectName: 'Positron',
+};
+
+// Get project config based on repo
+function getProjectConfig(repoConfig: RepoConfig): ProjectFilterConfig {
+  if (isDefaultPositronRepo(repoConfig)) {
+    return POSITRON_PROJECT_CONFIG;
+  }
+  // For other repos, no default project filtering
+  return {};
+}
 
 // Verify GitHub CLI authentication on module load
 async function verifyGitHubAuth(): Promise<void> {
+  const repoConfig = getCachedRepoConfig();
+
   try {
     await execGitHub(['auth', 'status']);
 
     // Test if we have read:project scope by making a simple project query
-    // This will fail if the scope is missing
     const testQuery = `
     query {
-      repository(owner: "${REPO_OWNER}", name: "${REPO_NAME}") {
+      repository(owner: "${repoConfig.owner}", name: "${repoConfig.name}") {
         projectsV2(first: 1) {
           nodes { id }
         }
@@ -129,12 +148,15 @@ async function execGitHub(args: string[]): Promise<string> {
 }
 
 export async function fetchIntakeQueue(
-  filterOptions: IntakeFilterOptions = DEFAULT_INTAKE_FILTERS
+  filterOptions: IntakeFilterOptions = DEFAULT_INTAKE_FILTERS,
+  projectConfig?: ProjectFilterConfig
 ): Promise<IntakeQueueData> {
   const warnings: string[] = [];
+  const repoConfig = getCachedRepoConfig();
+  const effectiveProjectConfig = projectConfig || getProjectConfig(repoConfig);
 
   const [issues, discussions] = await Promise.all([
-    fetchIssuesInIntake(warnings, filterOptions),
+    fetchIssuesInIntake(warnings, filterOptions, effectiveProjectConfig),
     fetchOpenDiscussions(filterOptions),
   ]);
 
@@ -147,8 +169,9 @@ export async function fetchIntakeQueue(
   };
 }
 
-// GraphQL query to fetch issues without Status in the Positron project
-const INTAKE_ISSUES_QUERY = `
+// GraphQL query to fetch issues with project field data
+function buildIntakeIssuesQuery(_owner: string, _name: string): string {
+  return `
 query GetIntakeIssues($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     issues(first: 100, states: OPEN, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -189,6 +212,7 @@ query GetIntakeIssues($owner: String!, $name: String!) {
   }
 }
 `;
+}
 
 interface GraphQLIssueNode {
   number: number;
@@ -215,15 +239,19 @@ interface GraphQLIssueNode {
 
 async function fetchIssuesInIntake(
   warnings: string[],
-  filterOptions: IntakeFilterOptions
+  filterOptions: IntakeFilterOptions,
+  projectConfig: ProjectFilterConfig
 ): Promise<GitHubIssueSummary[]> {
+  const repoConfig = getCachedRepoConfig();
+
   try {
     // Use GraphQL to get issues with project field data
+    const query = buildIntakeIssuesQuery(repoConfig.owner, repoConfig.name);
     const result = await execGitHub([
       'api', 'graphql',
-      '-f', `query=${INTAKE_ISSUES_QUERY}`,
-      '-f', `owner=${REPO_OWNER}`,
-      '-f', `name=${REPO_NAME}`
+      '-f', `query=${query}`,
+      '-f', `owner=${repoConfig.owner}`,
+      '-f', `name=${repoConfig.name}`
     ]);
 
     const data = JSON.parse(result);
@@ -232,10 +260,10 @@ async function fetchIssuesInIntake(
     // Filter for issues that need intake attention based on filter options
     return issues
       .filter((issue) => {
-        // If in Positron Backlog project, it's been taken care of
-        if (filterOptions.excludeBacklogProject) {
+        // If in backlog project, it's been taken care of
+        if (filterOptions.excludeBacklogProject && projectConfig.backlogProjectName) {
           const inBacklogProject = issue.projectItems?.nodes?.some(
-            (item) => item.project?.title === 'Positron Backlog'
+            (item) => item.project?.title === projectConfig.backlogProjectName
           );
           if (inBacklogProject) return false;
         }
@@ -254,13 +282,13 @@ async function fetchIssuesInIntake(
           if (hasTriagedLabel) return false;
         }
 
-        // Check Positron project status
-        if (filterOptions.excludeStatusSet) {
-          const positronProject = issue.projectItems?.nodes?.find(
-            (item) => item.project?.title === 'Positron'
+        // Check main project status
+        if (filterOptions.excludeStatusSet && projectConfig.mainProjectName) {
+          const mainProject = issue.projectItems?.nodes?.find(
+            (item) => item.project?.title === projectConfig.mainProjectName
           );
-          if (positronProject) {
-            const statusField = positronProject.fieldValues?.nodes?.find(
+          if (mainProject) {
+            const statusField = mainProject.fieldValues?.nodes?.find(
               (field) => field.field?.name === 'Status'
             );
             if (statusField?.name) return false; // Has status = triaged
@@ -293,7 +321,7 @@ async function fetchIssuesInIntake(
     // Fallback to simpler query without project data
     const result = await execGitHub([
       'issue', 'list',
-      '--repo', REPO,
+      '--repo', repoConfig.fullName,
       '--state', 'open',
       '--json', 'number,title,author,createdAt,labels,url,state',
       '--limit', '100'
@@ -303,7 +331,8 @@ async function fetchIssuesInIntake(
 }
 
 // GraphQL query for open discussions
-const OPEN_DISCUSSIONS_QUERY = `
+function buildOpenDiscussionsQuery(): string {
+  return `
 query GetOpenDiscussions($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     discussions(first: 50, states: OPEN, answered: false) {
@@ -332,6 +361,7 @@ query GetOpenDiscussions($owner: String!, $name: String!) {
   }
 }
 `;
+}
 
 interface GraphQLCommentReply {
   author: { login: string } | null;
@@ -365,17 +395,20 @@ const MAINTAINER_ASSOCIATIONS = ['MEMBER', 'OWNER', 'COLLABORATOR'];
 async function fetchOpenDiscussions(
   filterOptions: IntakeFilterOptions
 ): Promise<GitHubDiscussionSummary[]> {
+  const repoConfig = getCachedRepoConfig();
+
   try {
     // Use different query based on whether we want to exclude answered discussions
+    const baseQuery = buildOpenDiscussionsQuery();
     const query = filterOptions.excludeAnswered
-      ? OPEN_DISCUSSIONS_QUERY  // This query has answered: false
-      : OPEN_DISCUSSIONS_QUERY.replace('answered: false', ''); // Remove the filter
+      ? baseQuery
+      : baseQuery.replace('answered: false', '');
 
     const result = await execGitHub([
       'api', 'graphql',
       '-f', `query=${query}`,
-      '-f', `owner=${REPO_OWNER}`,
-      '-f', `name=${REPO_NAME}`
+      '-f', `owner=${repoConfig.owner}`,
+      '-f', `name=${repoConfig.name}`
     ]);
 
     const data = JSON.parse(result);
@@ -418,7 +451,7 @@ async function fetchOpenDiscussions(
     try {
       const result = await execGitHub([
         'api',
-        `repos/${REPO}/discussions`,
+        `repos/${repoConfig.fullName}/discussions`,
         '--jq', '[.[] | select(.answer == null) | {number, title, author: .user.login, createdAt: .created_at, category: .category.name, url: .html_url, answerChosenAt: .answer_chosen_at}] | .[0:50]'
       ]);
       const discussions = JSON.parse(result || '[]');
@@ -434,10 +467,12 @@ async function fetchOpenDiscussions(
 
 // Fetch full issue details (with body)
 export async function fetchIssueDetails(issueNumber: number): Promise<GitHubIssue> {
+  const repoConfig = getCachedRepoConfig();
+
   const result = await execGitHub([
     'issue', 'view',
     String(issueNumber),
-    '--repo', REPO,
+    '--repo', repoConfig.fullName,
     '--json', 'number,title,author,createdAt,labels,url,state,body'
   ]);
   const data = JSON.parse(result);
@@ -455,6 +490,8 @@ export async function fetchIssueDetails(issueNumber: number): Promise<GitHubIssu
 
 // Fetch full discussion details (with body)
 export async function fetchDiscussionDetails(discussionNumber: number): Promise<GitHubDiscussion> {
+  const repoConfig = getCachedRepoConfig();
+
   // Use GraphQL for discussion details since REST API is limited
   const query = `
   query GetDiscussion($owner: String!, $name: String!, $number: Int!) {
@@ -488,8 +525,8 @@ export async function fetchDiscussionDetails(discussionNumber: number): Promise<
   const result = await execGitHub([
     'api', 'graphql',
     '-f', `query=${query}`,
-    '-f', `owner=${REPO_OWNER}`,
-    '-f', `name=${REPO_NAME}`,
+    '-f', `owner=${repoConfig.owner}`,
+    '-f', `name=${repoConfig.name}`,
     '-F', `number=${discussionNumber}`
   ]);
 
@@ -531,6 +568,8 @@ let labelCacheTime = 0;
 const LABEL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function fetchRepoLabels(): Promise<string[]> {
+  const repoConfig = getCachedRepoConfig();
+
   // Cache labels for 5 minutes to avoid repeated API calls
   if (labelCache && Date.now() - labelCacheTime < LABEL_CACHE_TTL) {
     return labelCache;
@@ -538,7 +577,7 @@ export async function fetchRepoLabels(): Promise<string[]> {
 
   const result = await execGitHub([
     'label', 'list',
-    '--repo', REPO,
+    '--repo', repoConfig.fullName,
     '--json', 'name',
     '--limit', '200'
   ]);
@@ -552,6 +591,8 @@ export async function fetchRepoLabels(): Promise<string[]> {
 }
 
 export async function applyLabel(issueNumber: number, label: string): Promise<void> {
+  const repoConfig = getCachedRepoConfig();
+
   // Validate label exists (prevent injection)
   const validLabels = await fetchRepoLabels();
   if (!validLabels.includes(label)) {
@@ -561,28 +602,36 @@ export async function applyLabel(issueNumber: number, label: string): Promise<vo
   await execGitHub([
     'issue', 'edit',
     String(issueNumber),
-    '--repo', REPO,
+    '--repo', repoConfig.fullName,
     '--add-label', label
   ]);
 }
 
 export async function removeLabel(issueNumber: number, label: string): Promise<void> {
+  const repoConfig = getCachedRepoConfig();
+
   await execGitHub([
     'issue', 'edit',
     String(issueNumber),
-    '--repo', REPO,
+    '--repo', repoConfig.fullName,
     '--remove-label', label
   ]);
 }
 
 export async function setProjectStatus(issueNumber: number, status: string): Promise<void> {
-  // Update the Status field in the Positron project
-  // This requires finding the project and field IDs first
+  const repoConfig = getCachedRepoConfig();
+  const projectConfig = getProjectConfig(repoConfig);
+
+  if (!projectConfig.mainProjectName) {
+    throw new Error('No main project configured for this repository');
+  }
+
+  // Update the Status field in the main project
   try {
     // Get project ID and field ID (would be cached in production)
     const projectQuery = `
     query {
-      repository(owner: "${REPO_OWNER}", name: "${REPO_NAME}") {
+      repository(owner: "${repoConfig.owner}", name: "${repoConfig.name}") {
         projectsV2(first: 10) {
           nodes {
             id
@@ -616,15 +665,15 @@ export async function setProjectStatus(issueNumber: number, status: string): Pro
       fields?: { nodes: ProjectV2Field[] };
     }
 
-    const positronProject: ProjectV2 | undefined = data.data?.repository?.projectsV2?.nodes?.find(
-      (p: ProjectV2) => p.title === 'Positron'
+    const mainProject: ProjectV2 | undefined = data.data?.repository?.projectsV2?.nodes?.find(
+      (p: ProjectV2) => p.title === projectConfig.mainProjectName
     );
 
-    if (!positronProject) {
-      throw new Error('Positron project not found');
+    if (!mainProject) {
+      throw new Error(`Project "${projectConfig.mainProjectName}" not found`);
     }
 
-    const statusField = positronProject.fields?.nodes?.find(
+    const statusField = mainProject.fields?.nodes?.find(
       (f) => f.name === 'Status'
     );
 
@@ -646,10 +695,12 @@ export async function setProjectStatus(issueNumber: number, status: string): Pro
 }
 
 export async function searchDuplicates(searchTerms: string[], excludeNumber: number): Promise<{ number: number; title: string; url: string; state: string }[]> {
+  const repoConfig = getCachedRepoConfig();
+
   const searchQuery = searchTerms.join(' OR ');
   const result = await execGitHub([
     'issue', 'list',
-    '--repo', REPO,
+    '--repo', repoConfig.fullName,
     '--search', searchQuery,
     '--json', 'number,title,state,url',
     '--limit', '10'
@@ -674,5 +725,34 @@ export async function searchDuplicates(searchTerms: string[], excludeNumber: num
     }));
 }
 
-// Verify auth on module initialization
-verifyGitHubAuth().catch(console.error);
+// Fetch repository metadata from GitHub API
+export async function fetchRepoMetadata(): Promise<{ description: string | null; topics: string[] }> {
+  const repoConfig = getCachedRepoConfig();
+
+  try {
+    const result = await execGitHub([
+      'api',
+      `repos/${repoConfig.fullName}`,
+      '--jq', '{description: .description, topics: .topics}'
+    ]);
+
+    const data = JSON.parse(result);
+    return {
+      description: data.description || null,
+      topics: data.topics || [],
+    };
+  } catch (error) {
+    console.error('Failed to fetch repo metadata:', error);
+    return { description: null, topics: [] };
+  }
+}
+
+// Initialize GitHub module - call after repo config is initialized
+export function initGitHub(): void {
+  // Clear label cache when switching repos
+  labelCache = null;
+  labelCacheTime = 0;
+
+  // Verify auth
+  verifyGitHubAuth().catch(console.error);
+}

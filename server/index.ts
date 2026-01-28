@@ -6,6 +6,9 @@ import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+import { initRepoConfig, type RepoConfig } from './config.js';
+import { loadIntakeConfig, saveIntakeConfig, type IntakeConfig } from './intake-config.js';
 import {
 	runIntakeAnalysis,
 	sendFollowUp,
@@ -27,6 +30,8 @@ import {
 	setProjectStatus,
 	fetchRepoLabels,
 	searchDuplicates,
+	fetchRepoMetadata,
+	initGitHub,
 	type IntakeFilterOptions,
 } from './github.js';
 import { runSetupChecks } from './setup-check.js';
@@ -34,6 +39,13 @@ import { runSetupChecks } from './setup-check.js';
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
+
+// Initialize repo config at startup
+const repoConfig: RepoConfig = initRepoConfig();
+console.log(`Target repository: ${repoConfig.fullName}`);
+
+// Initialize GitHub module after repo config
+initGitHub();
 
 // Load Claude settings at startup
 const claudeSettings: ClaudeSettings = loadClaudeSettings();
@@ -44,14 +56,27 @@ if (claudeSettings.env) {
 	}
 }
 
-// Default: sibling positron repo. Override with POSITRON_REPO_PATH env var.
-const positronRepoPath = process.env.POSITRON_REPO_PATH || resolve(__dirname, '../../positron');
-if (existsSync(positronRepoPath)) {
-	console.log(`Using positron repo at: ${positronRepoPath}`);
+// Support both old and new env var names for repo path
+const targetRepoPath = process.env.TARGET_REPO_PATH || process.env.POSITRON_REPO_PATH || resolve(__dirname, '../../positron');
+if (existsSync(targetRepoPath)) {
+	console.log(`Using target repo at: ${targetRepoPath}`);
 } else {
-	console.warn(`Warning: Positron repo not found at ${positronRepoPath}`);
-	console.warn('Follow-up searches will not work. Set POSITRON_REPO_PATH to fix.');
+	console.warn(`Warning: Target repo not found at ${targetRepoPath}`);
+	console.warn('Follow-up searches will not work. Set TARGET_REPO_PATH to fix.');
 }
+
+// Load intake config
+const intakeConfig: IntakeConfig = loadIntakeConfig(repoConfig, targetRepoPath);
+console.log(`Intake criteria: ${intakeConfig.intakeCriteria.substring(0, 50)}...`);
+
+// Fetch repo metadata for prompts
+let repoDescription: string | null = null;
+fetchRepoMetadata().then(meta => {
+	repoDescription = meta.description;
+	if (repoDescription) {
+		console.log(`Repo description: ${repoDescription}`);
+	}
+}).catch(console.error);
 
 app.use(express.json());
 
@@ -67,10 +92,53 @@ app.get('/api/health', (_req, res) => {
 	res.json({ status: 'ok' });
 });
 
+// Config endpoint - expose repo info to frontend
+app.get('/api/config', (_req, res) => {
+	res.json({
+		repo: {
+			owner: repoConfig.owner,
+			name: repoConfig.name,
+			fullName: repoConfig.fullName,
+			description: repoDescription,
+		},
+		intakeCriteria: intakeConfig.intakeCriteria,
+	});
+});
+
+// Intake config endpoints
+app.get('/api/intake-config', (_req, res) => {
+	res.json({
+		intakeCriteria: intakeConfig.intakeCriteria,
+		version: intakeConfig.version,
+	});
+});
+
+app.post('/api/intake-config', (req, res) => {
+	const { intakeCriteria } = req.body;
+
+	if (!intakeCriteria || typeof intakeCriteria !== 'string') {
+		res.status(400).json({ error: 'Invalid intake criteria' });
+		return;
+	}
+
+	try {
+		// Update in-memory config
+		intakeConfig.intakeCriteria = intakeCriteria;
+
+		// Save to disk
+		saveIntakeConfig(repoConfig, intakeConfig);
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error('Failed to save intake config:', error);
+		res.status(500).json({ error: 'Failed to save intake config' });
+	}
+});
+
 // Setup check endpoint
 app.get('/api/setup-check', async (_req, res) => {
 	try {
-		const result = await runSetupChecks(positronRepoPath);
+		const result = await runSetupChecks(targetRepoPath, repoConfig);
 		res.json(result);
 	} catch (error) {
 		console.error('Setup check failed:', error);
@@ -213,7 +281,7 @@ app.post('/api/issues/:number/analyze', async (req, res) => {
 				body,
 				labels: labels || [],
 			},
-			{ claudeSettings }
+			{ claudeSettings, repoConfig, repoDescription: repoDescription || undefined }
 		);
 		res.json(analysis);
 	} catch (error) {
@@ -252,7 +320,7 @@ app.post('/api/issues/:number/analyze/follow-up', async (req, res) => {
 				},
 				conversationHistory: (conversationHistory || []) as FollowUpMessage[],
 			},
-			{ claudeSettings, workingDirectory: positronRepoPath }
+			{ claudeSettings, workingDirectory: targetRepoPath, repoConfig, repoDescription: repoDescription || undefined }
 		);
 		res.json({ response });
 	} catch (error) {
@@ -347,7 +415,12 @@ wss.on('connection', (ws) => {
 
 async function handleCatchUp(ws: WebSocket, state: ClientState) {
 	try {
-		for await (const message of runIntakeAnalysis({ sessionId: state.sessionId, claudeSettings })) {
+		for await (const message of runIntakeAnalysis({
+			sessionId: state.sessionId,
+			claudeSettings,
+			repoConfig,
+			repoDescription: repoDescription || undefined,
+		})) {
 			ws.send(JSON.stringify(message));
 
 			// Extract session ID from messages (SDK messages have session_id)
@@ -372,7 +445,11 @@ async function handleCatchUp(ws: WebSocket, state: ClientState) {
 
 async function handleFollowUp(ws: WebSocket, state: ClientState, prompt: string) {
 	try {
-		for await (const message of sendFollowUp(prompt, state.sessionId!, { claudeSettings })) {
+		for await (const message of sendFollowUp(prompt, state.sessionId!, {
+			claudeSettings,
+			repoConfig,
+			repoDescription: repoDescription || undefined,
+		})) {
 			ws.send(JSON.stringify(message));
 
 			if ('session_id' in message && message.session_id) {
@@ -401,7 +478,10 @@ async function handleQuickAction(
 	value?: string
 ) {
 	try {
-		for await (const message of executeQuickAction(action, issueNumber, value, { claudeSettings })) {
+		for await (const message of executeQuickAction(action, issueNumber, value, {
+			claudeSettings,
+			repoConfig,
+		})) {
 			ws.send(JSON.stringify(message));
 		}
 	} catch (error) {

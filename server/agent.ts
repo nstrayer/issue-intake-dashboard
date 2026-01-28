@@ -2,8 +2,9 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-code';
 import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import { INTAKE_SYSTEM_PROMPT, CATCH_UP_PROMPT } from './prompts/intake.js';
-import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage } from './prompts/analysis.js';
+import { getCachedRepoConfig, type RepoConfig } from './config.js';
+import { buildIntakeSystemPrompt, buildCatchUpPrompt } from './prompts/intake.js';
+import { buildAnalysisSystemPrompt, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage } from './prompts/analysis.js';
 import { FILTER_SYSTEM_PROMPT, buildFilterPrompt } from './prompts/filter.js';
 import type { AIFilterResult } from './types/aiFilter.js';
 
@@ -16,6 +17,8 @@ export interface AgentOptions {
 	sessionId?: string;
 	workingDirectory?: string;
 	claudeSettings?: ClaudeSettings;
+	repoConfig?: RepoConfig;
+	repoDescription?: string;
 }
 
 /**
@@ -93,14 +96,18 @@ function buildEnv(claudeSettings?: ClaudeSettings): Record<string, string> | und
 }
 
 export async function* runIntakeAnalysis(options: AgentOptions = {}): AsyncGenerator<SDKMessage> {
-	const { sessionId, workingDirectory = process.cwd(), claudeSettings } = options;
+	const { sessionId, workingDirectory = process.cwd(), claudeSettings, repoDescription } = options;
+	const repoConfig = options.repoConfig || getCachedRepoConfig();
+
+	const systemPrompt = buildIntakeSystemPrompt(repoConfig, repoDescription);
+	const catchUpPrompt = buildCatchUpPrompt(repoConfig);
 
 	try {
 		for await (const message of query({
-			prompt: CATCH_UP_PROMPT,
+			prompt: catchUpPrompt,
 			options: {
 				allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-				appendSystemPrompt: INTAKE_SYSTEM_PROMPT,
+				appendSystemPrompt: systemPrompt,
 				cwd: workingDirectory,
 				resume: sessionId,
 				env: buildEnv(claudeSettings),
@@ -121,14 +128,17 @@ export async function* sendFollowUp(
 	sessionId: string,
 	options: AgentOptions = {}
 ): AsyncGenerator<SDKMessage> {
-	const { workingDirectory = process.cwd(), claudeSettings } = options;
+	const { workingDirectory = process.cwd(), claudeSettings, repoDescription } = options;
+	const repoConfig = options.repoConfig || getCachedRepoConfig();
+
+	const systemPrompt = buildIntakeSystemPrompt(repoConfig, repoDescription);
 
 	try {
 		for await (const message of query({
 			prompt,
 			options: {
 				allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-				appendSystemPrompt: INTAKE_SYSTEM_PROMPT,
+				appendSystemPrompt: systemPrompt,
 				resume: sessionId,
 				cwd: workingDirectory,
 				env: buildEnv(claudeSettings),
@@ -151,18 +161,19 @@ export async function* executeQuickAction(
 	options: AgentOptions = {}
 ): AsyncGenerator<SDKMessage> {
 	const { workingDirectory = process.cwd(), claudeSettings } = options;
+	const repoConfig = options.repoConfig || getCachedRepoConfig();
 
 	let prompt: string;
 
 	switch (action) {
 		case 'add-label':
-			prompt = `Add the label "${value}" to issue #${issueNumber} in the posit-dev/positron repository using: gh issue edit ${issueNumber} --repo posit-dev/positron --add-label "${value}"`;
+			prompt = `Add the label "${value}" to issue #${issueNumber} in the ${repoConfig.fullName} repository using: gh issue edit ${issueNumber} --repo ${repoConfig.fullName} --add-label "${value}"`;
 			break;
 		case 'set-triage':
-			prompt = `Set issue #${issueNumber} to "Triage" status in the Positron project board. Use the gh CLI to update the project field.`;
+			prompt = `Set issue #${issueNumber} to "Triage" status in the ${repoConfig.name} project board. Use the gh CLI to update the project field.`;
 			break;
 		case 'close':
-			prompt = `Close issue #${issueNumber} in posit-dev/positron with a brief comment explaining why.`;
+			prompt = `Close issue #${issueNumber} in ${repoConfig.fullName} with a brief comment explaining why.`;
 			break;
 		default:
 			throw new Error(`Unknown action: ${action}`);
@@ -201,8 +212,10 @@ export async function analyzeIssue(
 	issue: { number: number; title: string; body: string; labels: string[] },
 	options: AgentOptions = {}
 ): Promise<AnalysisResult> {
-	const { claudeSettings } = options;
+	const { claudeSettings, repoDescription } = options;
+	const repoConfig = options.repoConfig || getCachedRepoConfig();
 
+	const systemPrompt = buildAnalysisSystemPrompt(repoConfig, repoDescription);
 	const prompt = buildAnalysisPrompt(issue);
 	let fullResponse = '';
 
@@ -211,7 +224,7 @@ export async function analyzeIssue(
 			prompt,
 			options: {
 				allowedTools: ['Bash'],
-				appendSystemPrompt: ANALYSIS_SYSTEM_PROMPT,
+				appendSystemPrompt: systemPrompt,
 				maxTurns: 15,
 				cwd: options.workingDirectory,
 				env: buildEnv(claudeSettings),
@@ -259,13 +272,16 @@ export async function followUpAnalysis(
 	context: FollowUpContext,
 	options: AgentOptions = {}
 ): Promise<string> {
-	const { claudeSettings, workingDirectory } = options;
+	const { claudeSettings, workingDirectory, repoDescription } = options;
+	const repoConfig = options.repoConfig || getCachedRepoConfig();
 
+	const systemPrompt = buildAnalysisSystemPrompt(repoConfig, repoDescription);
 	const prompt = buildFollowUpPrompt(
 		context.issue,
 		context.analysis,
 		context.conversationHistory,
-		userQuestion
+		userQuestion,
+		repoConfig
 	);
 	let fullResponse = '';
 	let hitMaxTurns = false;
@@ -275,7 +291,7 @@ export async function followUpAnalysis(
 			prompt,
 			options: {
 				allowedTools: ['Bash'],
-				appendSystemPrompt: ANALYSIS_SYSTEM_PROMPT,
+				appendSystemPrompt: systemPrompt,
 				maxTurns: 15,
 				cwd: workingDirectory,
 				env: buildEnv(claudeSettings),

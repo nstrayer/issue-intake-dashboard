@@ -1,38 +1,33 @@
-export const ANALYSIS_SYSTEM_PROMPT = `You are an expert at triaging GitHub issues for the Positron IDE project (a next-generation data science IDE built on VS Code).
+import type { RepoConfig } from '../config.js';
+
+export function buildAnalysisSystemPrompt(repoConfig: RepoConfig, repoDescription?: string): string {
+  const descriptionLine = repoDescription
+    ? `\n\n${repoConfig.name} is: ${repoDescription}`
+    : '';
+
+  return `You are an expert at triaging GitHub issues for the ${repoConfig.fullName} repository.${descriptionLine}
 
 Your job is to analyze issues and provide structured assistance to intake triagers.
 
-Available area labels:
-- area:editor - Core text editing, Monaco editor issues
-- area:console - Interactive console (R, Python REPL)
-- area:variables - Variables pane, object inspection
-- area:plots - Plot viewer, visualization
-- area:connections - Database connections, remote connections
-- area:help - Help pane, documentation viewer
-- area:data-explorer - Data frame viewer, table exploration
-- area:notebooks - Jupyter notebook support
-- area:extensions - Extension compatibility, marketplace
-- area:r - R language support, R interpreter
-- area:python - Python language support, Python interpreter
-- area:infrastructure - Build, CI/CD, installation, packaging
-
-Type labels:
-- type:bug - Something broken or not working
-- type:enhancement - New feature or improvement
-- type:question - User asking for help
-- type:docs - Documentation issue
-
 When analyzing, consider:
-1. What area of Positron does this affect?
+1. What area of the codebase does this affect?
 2. Is this a bug, feature request, question, or docs issue?
 3. Have we seen similar issues before?
 4. What information might we need from the reporter?
 
 You have access to the Bash tool and can search for related issues using the gh CLI:
-- Search issues: gh issue list --repo posit-dev/positron --search "<query>" --state all --limit 10
-- Search with labels: gh issue list --repo posit-dev/positron --label "<label>" --state all --limit 10
+- Search issues: gh issue list --repo ${repoConfig.fullName} --search "<query>" --state all --limit 10
+- Search with labels: gh issue list --repo ${repoConfig.fullName} --label "<label>" --state all --limit 10
 
 IMPORTANT: You CAN run read-only search commands but CANNOT modify issues.`;
+}
+
+// Legacy export for backward compatibility during transition
+export const ANALYSIS_SYSTEM_PROMPT = buildAnalysisSystemPrompt({
+  owner: 'posit-dev',
+  name: 'positron',
+  fullName: 'posit-dev/positron',
+}, 'a next-generation data science IDE built on VS Code');
 
 export function buildAnalysisPrompt(issue: {
   number: number;
@@ -74,8 +69,11 @@ export function buildFollowUpPrompt(
   issue: { number: number; title: string; body: string },
   analysis: { summary: string; suggestedLabels: string[]; draftResponse?: string },
   conversationHistory: FollowUpMessage[],
-  userQuestion: string
+  userQuestion: string,
+  repoConfig?: RepoConfig
 ): string {
+  const repo = repoConfig || { owner: 'posit-dev', name: 'positron', fullName: 'posit-dev/positron' };
+
   const historyText = conversationHistory
     .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
     .join('\n\n');
@@ -94,9 +92,9 @@ ${analysis.draftResponse ? `Draft Response: ${analysis.draftResponse}` : ''}
 
 ## Your Capabilities
 
-You have access to the positron repository and can search for related issues:
-- Search issues: gh issue list --repo posit-dev/positron --search "<query>" --state all --limit 10
-- Search with labels: gh issue list --repo posit-dev/positron --label "<label>" --state all --limit 10
+You have access to the repository and can search for related issues:
+- Search issues: gh issue list --repo ${repo.fullName} --search "<query>" --state all --limit 10
+- Search with labels: gh issue list --repo ${repo.fullName} --label "<label>" --state all --limit 10
 
 IMPORTANT:
 - You CAN run read-only search commands (gh issue list, gh search issues, etc.)

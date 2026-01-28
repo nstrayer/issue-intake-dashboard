@@ -1,10 +1,10 @@
 {
-	"name": "issue-intake-dashboard",
+	"name": "triage-sidekick",
 	"version": "1.1.0",
-	"description": "Visual dashboard for GitHub issue intake rotation, powered by Claude Code SDK",
+	"description": "Your AI-in-the-loop sidekick for GitHub issue triage",
 	"type": "module",
 	"bin": {
-		"issue-intake-dashboard": "./bin/cli.js"
+		"triage-sidekick": "./bin/cli.js"
 	},
 	"files": [
 		"bin",
@@ -21,14 +21,15 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nstrayer/issue-intake-dashboard.git"
+		"url": "https://github.com/nstrayer/triage-sidekick.git"
 	},
 	"keywords": [
 		"github",
 		"issues",
+		"triage",
 		"dashboard",
 		"claude",
-		"positron"
+		"ai"
 	],
 	"author": "Nick Strayer",
 	"license": "MIT",

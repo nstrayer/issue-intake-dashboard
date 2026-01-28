@@ -1,4 +1,4 @@
-# Issue Intake Command Center - Design Notes
+# Triage Sidekick - Design Notes
 
 **Date:** 2026-01-26
 

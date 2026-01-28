@@ -1,13 +1,13 @@
-# Positron Issue Intake Dashboard
+# Triage Sidekick
 
-A visual dashboard for GitHub issue intake rotation, powered by Claude Code SDK.
+Your AI-in-the-loop sidekick for GitHub issue triage.
 
 ---
 
 ## Quick Start
 
 ```bash
-npx issue-intake-dashboard
+npx triage-sidekick
 ```
 
 That's it! Open http://localhost:3001 in your browser.
@@ -22,7 +22,7 @@ You need these tools installed and authenticated:
 | **GitHub CLI** | `gh auth status` | `gh auth login` |
 | **AWS CLI** | `aws sts get-caller-identity` | `aws sso login` |
 
-### First-time setup for Posit employees
+### First-time setup
 
 ```bash
 # 1. Authenticate with GitHub (if not already)
@@ -32,14 +32,14 @@ gh auth login
 aws sso login
 
 # 3. Run the dashboard
-npx issue-intake-dashboard
+npx triage-sidekick
 ```
 
 ---
 
 ## What This Tool Does
 
-- Visual dashboard for Positron issue intake rotation
+- Visual dashboard for GitHub issue triage
 - Claude-powered analysis of open issues and discussions
 - One-click actions to label issues and set triage status
 - Follow-up questions for deeper investigation
@@ -72,7 +72,7 @@ gh auth status
 If you see "No AWS credentials found", configure credentials using one of:
 
 ```bash
-# Option 1: SSO login (recommended for Posit employees)
+# Option 1: SSO login (recommended)
 aws sso login
 
 # Option 2: Configure access keys
@@ -89,7 +89,7 @@ export AWS_SECRET_ACCESS_KEY=your-secret
 ┌─────────────────────────────────────────────────────────────┐
 │                  React + Vite Frontend                       │
 │  ┌──────────────────────┐  ┌────────────────────────────┐   │
-│  │   Intake Dashboard   │  │      Chat Interface        │   │
+│  │   Triage Dashboard   │  │      Chat Interface        │   │
 │  │  - Issue queue       │  │  - "Let's get caught up"   │   │
 │  │  - Area breakdown    │  │  - Streaming responses     │   │
 │  │  - Quick actions     │  │  - Follow-up questions     │   │
@@ -101,16 +101,16 @@ export AWS_SECRET_ACCESS_KEY=your-secret
 │                  Node.js Backend                             │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │            Claude Code SDK Integration               │    │
-│  │  - query() with intake system prompt                │    │
+│  │  - query() with triage system prompt                │    │
 │  │  - Built-in tools: Read, Bash, Glob, Grep           │    │
 │  │  - Session management for conversations             │    │
 │  │  - Streams responses via WebSocket                  │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                            │                                 │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │     GitHub CLI (gh) / positron-intake-rotation      │    │
-│  │  - Same scripts as intake skill                     │    │
-│  │  - fetch_intake_issues.sh, fetch_discussions.sh     │    │
+│  │                    GitHub CLI (gh)                   │    │
+│  │  - Fetch issues, discussions, labels                │    │
+│  │  - Apply labels, set project status                 │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -119,7 +119,7 @@ export AWS_SECRET_ACCESS_KEY=your-secret
 
 1. Frontend connects via WebSocket to backend
 2. User clicks "Let's get caught up"
-3. Backend spawns Claude Code SDK with intake prompt
+3. Backend spawns Claude Code SDK with triage prompt
 4. SDK executes `gh` commands to fetch issues/discussions
 5. Claude analyzes results and streams response back
 6. Frontend renders markdown + parses structured data for tables/charts
@@ -129,8 +129,8 @@ export AWS_SECRET_ACCESS_KEY=your-secret
 If you want to modify the dashboard, clone the repo and run in dev mode:
 
 ```bash
-git clone https://github.com/nstrayer/issue-intake-dashboard.git
-cd issue-intake-dashboard
+git clone https://github.com/nstrayer/triage-sidekick.git
+cd triage-sidekick
 npm install
 npm run dev
 ```
@@ -153,7 +153,7 @@ npx tsc --noEmit      # Type check
 ## Directory Structure
 
 ```
-issue-intake-dashboard/
+triage-sidekick/
 ├── package.json              # Dependencies and scripts
 ├── vite.config.ts            # Vite configuration
 ├── index.html                # HTML entry point
@@ -162,7 +162,7 @@ issue-intake-dashboard/
 │   ├── agent.ts              # Claude Code SDK integration
 │   ├── auth.ts               # AWS credential discovery
 │   └── prompts/
-│       └── intake.ts         # Intake system prompt
+│       └── intake.ts         # Triage system prompt
 ├── src/
 │   ├── main.tsx              # React entry point
 │   ├── App.tsx               # Main application component
@@ -178,7 +178,7 @@ issue-intake-dashboard/
 │   │   └── useIntakeData.ts  # Parsed intake data from chat
 │   └── types/
 │       └── intake.ts         # TypeScript types
-└── scripts/                  # Symlinks to intake scripts
+└── scripts/                  # Shell scripts for GitHub operations
 ```
 
 ## Troubleshooting
@@ -201,8 +201,8 @@ gh auth status
 # Check AWS credentials
 aws sts get-caller-identity
 
-# Test GitHub access to Positron
-gh repo view posit-dev/positron --json name
+# Test GitHub access
+gh repo view owner/repo --json name
 ```
 
 ### Common Issues
@@ -213,7 +213,7 @@ gh repo view posit-dev/positron --json name
 
 **Fix:**
 ```bash
-# For Posit employees using SSO:
+# Using SSO:
 aws sso login
 
 # Or configure access keys:
@@ -240,7 +240,7 @@ If you don't see this, run `aws sso login` and restart the dashboard.
 ```bash
 gh auth login
 # Then verify:
-gh repo view posit-dev/positron --json name
+gh repo view owner/repo --json name
 ```
 
 #### Page won't load / connection refused
@@ -260,7 +260,7 @@ Server running on port 3001
 ```bash
 aws sso login
 # Then restart the dashboard
-npx issue-intake-dashboard
+npx triage-sidekick
 ```
 
 #### Analysis stops mid-stream
@@ -273,10 +273,10 @@ npx issue-intake-dashboard
 
 ```bash
 # Use a different port
-PORT=8080 npx issue-intake-dashboard
+PORT=8080 npx triage-sidekick
 
-# Point to a different positron repo location
-POSITRON_REPO_PATH=/path/to/positron npx issue-intake-dashboard
+# Specify a different repository
+npx triage-sidekick --repo owner/repo
 ```
 
 For development, you can create a `.env` file:

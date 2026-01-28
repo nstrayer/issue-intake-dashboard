@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
+import type { RepoConfig } from './config.js';
 
 export interface SetupCheckResult {
 	name: string;
@@ -144,9 +145,9 @@ async function checkGhCliAuth(): Promise<SetupCheckResult> {
 /**
  * Check if gh CLI has read:project scope for project board access
  */
-async function checkGhProjectScope(): Promise<SetupCheckResult> {
+async function checkGhProjectScope(repoConfig: RepoConfig): Promise<SetupCheckResult> {
 	// Test scope by making a simple project query
-	const testQuery = `query { repository(owner: "posit-dev", name: "positron") { projectsV2(first: 1) { nodes { id } } } }`;
+	const testQuery = `query { repository(owner: "${repoConfig.owner}", name: "${repoConfig.name}") { projectsV2(first: 1) { nodes { id } } } }`;
 	const result = await execCommand('gh', ['api', 'graphql', '-f', `query=${testQuery}`]);
 
 	if (result.exitCode !== 0) {
@@ -179,46 +180,46 @@ async function checkGhProjectScope(): Promise<SetupCheckResult> {
 }
 
 /**
- * Check if positron repo is accessible
+ * Check if target repo is accessible
  */
-function checkPositronRepo(positronRepoPath: string): SetupCheckResult {
-	if (!existsSync(positronRepoPath)) {
+function checkTargetRepo(targetRepoPath: string, repoConfig: RepoConfig): SetupCheckResult {
+	if (!existsSync(targetRepoPath)) {
 		return {
-			name: 'Positron Repository',
+			name: 'Target Repository',
 			status: 'fail',
-			message: 'Positron repository not found',
-			details: `Expected at: ${positronRepoPath}`,
-			fixCommand: 'Set POSITRON_REPO_PATH environment variable',
+			message: `Repository not found (${repoConfig.fullName})`,
+			details: `Expected at: ${targetRepoPath}`,
+			fixCommand: 'Set TARGET_REPO_PATH environment variable',
 		};
 	}
 
 	// Check if it's a git repo
-	const gitDir = resolve(positronRepoPath, '.git');
+	const gitDir = resolve(targetRepoPath, '.git');
 	if (!existsSync(gitDir)) {
 		return {
-			name: 'Positron Repository',
+			name: 'Target Repository',
 			status: 'fail',
 			message: 'Directory exists but is not a git repository',
-			details: positronRepoPath,
+			details: targetRepoPath,
 		};
 	}
 
 	return {
-		name: 'Positron Repository',
+		name: 'Target Repository',
 		status: 'pass',
-		message: `Found at ${positronRepoPath}`,
+		message: `Found at ${targetRepoPath}`,
 	};
 }
 
 /**
- * Check if skills/claude.md exists in positron repo
+ * Check if CLAUDE.md exists in target repo
  */
-function checkClaudeMdFile(positronRepoPath: string): SetupCheckResult {
+function checkClaudeMdFile(targetRepoPath: string): SetupCheckResult {
 	// Check for various locations where claude.md might be
 	const possiblePaths = [
-		resolve(positronRepoPath, 'skills', 'claude.md'),
-		resolve(positronRepoPath, '.claude', 'CLAUDE.md'),
-		resolve(positronRepoPath, 'CLAUDE.md'),
+		resolve(targetRepoPath, 'skills', 'claude.md'),
+		resolve(targetRepoPath, '.claude', 'CLAUDE.md'),
+		resolve(targetRepoPath, 'CLAUDE.md'),
 	];
 
 	for (const path of possiblePaths) {
@@ -226,7 +227,7 @@ function checkClaudeMdFile(positronRepoPath: string): SetupCheckResult {
 			return {
 				name: 'Claude Skills File',
 				status: 'pass',
-				message: `Found at ${path.replace(positronRepoPath, '.')}`,
+				message: `Found at ${path.replace(targetRepoPath, '.')}`,
 			};
 		}
 	}
@@ -242,7 +243,7 @@ function checkClaudeMdFile(positronRepoPath: string): SetupCheckResult {
 /**
  * Run all setup checks
  */
-export async function runSetupChecks(positronRepoPath: string): Promise<SetupCheckResponse> {
+export async function runSetupChecks(targetRepoPath: string, repoConfig: RepoConfig): Promise<SetupCheckResponse> {
 	const checks: SetupCheckResult[] = [];
 
 	// Run CLI checks in parallel
@@ -261,18 +262,18 @@ export async function runSetupChecks(positronRepoPath: string): Promise<SetupChe
 
 		// Only check project scope if authenticated
 		if (authResult.status === 'pass') {
-			const scopeResult = await checkGhProjectScope();
+			const scopeResult = await checkGhProjectScope(repoConfig);
 			checks.push(scopeResult);
 		}
 	}
 
-	// Check positron repo
-	const repoResult = checkPositronRepo(positronRepoPath);
+	// Check target repo
+	const repoResult = checkTargetRepo(targetRepoPath, repoConfig);
 	checks.push(repoResult);
 
 	// Only check claude.md if repo exists
 	if (repoResult.status === 'pass') {
-		const claudeMdResult = checkClaudeMdFile(positronRepoPath);
+		const claudeMdResult = checkClaudeMdFile(targetRepoPath);
 		checks.push(claudeMdResult);
 	}
 
