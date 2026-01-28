@@ -1,5 +1,7 @@
 import type { RepoConfig } from '../config.js';
 
+export type AnalysisType = 'full' | 'duplicates' | 'labels' | 'response';
+
 export function buildAnalysisSystemPrompt(repoConfig: RepoConfig, repoDescription?: string): string {
   const descriptionLine = repoDescription
     ? `\n\n${repoConfig.name} is: ${repoDescription}`
@@ -34,14 +36,66 @@ export function buildAnalysisPrompt(issue: {
   title: string;
   body: string;
   labels: string[];
-}): string {
-  return `Analyze this GitHub issue and provide structured analysis:
-
-## Issue #${issue.number}: ${issue.title}
+}, type: AnalysisType = 'full'): string {
+  const issueContext = `## Issue #${issue.number}: ${issue.title}
 
 ${issue.body || '*No description provided*'}
 
-Current labels: ${issue.labels.length > 0 ? issue.labels.join(', ') : 'None'}
+Current labels: ${issue.labels.length > 0 ? issue.labels.join(', ') : 'None'}`;
+
+  if (type === 'labels') {
+    return `Analyze this GitHub issue and suggest appropriate labels:
+
+${issueContext}
+
+Respond with a JSON object in this exact format:
+\`\`\`json
+{
+  "suggestedLabels": ["label1", "label2"]
+}
+\`\`\`
+
+Only suggest labels that are not already applied. Choose labels that accurately categorize the issue type (bug, feature, question, etc.) and affected area.`;
+  }
+
+  if (type === 'duplicates') {
+    return `Analyze this GitHub issue and identify search terms for finding duplicates:
+
+${issueContext}
+
+Respond with a JSON object in this exact format:
+\`\`\`json
+{
+  "duplicateSearchTerms": ["term1", "term2", "term3"]
+}
+\`\`\`
+
+Provide 2-3 search terms we could use to find similar or duplicate issues. Focus on specific error messages, feature names, or unique technical terms.`;
+  }
+
+  if (type === 'response') {
+    return `Analyze this GitHub issue and draft an appropriate response:
+
+${issueContext}
+
+Respond with a JSON object in this exact format:
+\`\`\`json
+{
+  "needsInfo": true/false,
+  "draftResponse": "draft response to the issue reporter"
+}
+\`\`\`
+
+Set needsInfo to true if the issue lacks reproduction steps, version info, or other critical details.
+Write a draftResponse that either:
+- Asks for missing information if needsInfo is true
+- Provides helpful acknowledgment or guidance for the issue`;
+  }
+
+  // Full analysis (default)
+  return `Analyze this GitHub issue and provide structured analysis:
+
+${issueContext}
 
 Respond with a JSON object in this exact format:
 \`\`\`json

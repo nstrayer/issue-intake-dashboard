@@ -4,7 +4,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { getCachedRepoConfig, type RepoConfig } from './config.js';
 import { buildIntakeSystemPrompt, buildCatchUpPrompt } from './prompts/intake.js';
-import { buildAnalysisSystemPrompt, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage } from './prompts/analysis.js';
+import { buildAnalysisSystemPrompt, buildAnalysisPrompt, buildFollowUpPrompt, type FollowUpMessage, type AnalysisType } from './prompts/analysis.js';
 import { FILTER_SYSTEM_PROMPT, buildFilterPrompt } from './prompts/filter.js';
 import type { AIFilterResult } from './types/aiFilter.js';
 
@@ -210,13 +210,14 @@ export { type FollowUpMessage } from './prompts/analysis.js';
 
 export async function analyzeIssue(
 	issue: { number: number; title: string; body: string; labels: string[] },
-	options: AgentOptions = {}
+	options: AgentOptions = {},
+	type: AnalysisType = 'full'
 ): Promise<AnalysisResult> {
 	const { claudeSettings, repoDescription } = options;
 	const repoConfig = options.repoConfig || getCachedRepoConfig();
 
 	const systemPrompt = buildAnalysisSystemPrompt(repoConfig, repoDescription);
-	const prompt = buildAnalysisPrompt(issue);
+	const prompt = buildAnalysisPrompt(issue, type);
 	let fullResponse = '';
 
 	try {

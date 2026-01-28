@@ -7,7 +7,7 @@ import { InfoModal } from './components/InfoModal/InfoModal';
 import { IntakeConfigModal } from './components/IntakeConfigModal/IntakeConfigModal';
 import { EnvironmentModal } from './components/EnvironmentModal/EnvironmentModal';
 import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
-import { useAnalysis } from './hooks/useAnalysis';
+import { useAnalysis, AnalysisType } from './hooks/useAnalysis';
 import { useAIFilter } from './hooks/useAIFilter';
 import { useConfig } from './hooks/useConfig';
 import { QueueItem } from './types/intake';
@@ -72,9 +72,9 @@ function App() {
     clearAnalysis();
   }, [clearAnalysis]);
 
-  const handleRequestAnalysis = useCallback((body: string) => {
+  const handleRequestAnalysis = useCallback((body: string, type: AnalysisType = 'full') => {
     if (selectedItem) {
-      analyzeItem(selectedItem, body);
+      analyzeItem(selectedItem, body, type);
     }
   }, [selectedItem, analyzeItem]);
 

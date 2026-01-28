@@ -146,18 +146,6 @@ app.get('/api/setup-check', async (_req, res) => {
 	}
 });
 
-// Environment info endpoint - quick context for orientation
-app.get('/api/environment', async (_req, res) => {
-	try {
-		const { getEnvironmentInfo } = await import('./setup-check.js');
-		const envInfo = await getEnvironmentInfo(targetRepoPath, repoConfig);
-		res.json(envInfo);
-	} catch (error) {
-		console.error('Environment info failed:', error);
-		res.status(500).json({ error: 'Failed to get environment info' });
-	}
-});
-
 // ===== REST API Endpoints for Command Center =====
 
 // Lightweight list endpoint (no bodies)
@@ -281,9 +269,10 @@ app.post('/api/issues/search-duplicates', async (req, res) => {
 });
 
 // Claude analysis endpoint
+// type param: 'full' (default) | 'duplicates' | 'labels' | 'response'
 app.post('/api/issues/:number/analyze', async (req, res) => {
 	const { number } = req.params;
-	const { title, body, labels } = req.body;
+	const { title, body, labels, type = 'full' } = req.body;
 
 	try {
 		const analysis = await analyzeIssue(
@@ -293,7 +282,8 @@ app.post('/api/issues/:number/analyze', async (req, res) => {
 				body,
 				labels: labels || [],
 			},
-			{ claudeSettings, repoConfig, repoDescription: repoDescription || undefined }
+			{ claudeSettings, repoConfig, repoDescription: repoDescription || undefined },
+			type
 		);
 		res.json(analysis);
 	} catch (error) {

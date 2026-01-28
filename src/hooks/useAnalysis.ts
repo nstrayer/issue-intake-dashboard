@@ -1,18 +1,24 @@
 import { useState, useCallback } from 'react';
 import { ClaudeAnalysis, QueueItem, FollowUpMessage } from '../types/intake';
 
+export type AnalysisType = 'full' | 'duplicates' | 'labels' | 'response';
+
 export function useAnalysis() {
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
-  const analyzeItem = useCallback(async (item: QueueItem, body: string) => {
-    setAnalysis({
-      suggestedLabels: [],
-      duplicates: [],
-      summary: '',
+  const analyzeItem = useCallback(async (item: QueueItem, body: string, type: AnalysisType = 'full') => {
+    // For individual analysis types, preserve existing results
+    const isFull = type === 'full';
+
+    setAnalysis(prev => ({
+      suggestedLabels: isFull ? [] : (prev?.suggestedLabels || []),
+      duplicates: isFull ? [] : (prev?.duplicates || []),
+      summary: isFull ? '' : (prev?.summary || ''),
+      draftResponse: isFull ? undefined : prev?.draftResponse,
       isLoading: true,
-      conversationHistory: [],
-    });
+      conversationHistory: isFull ? [] : (prev?.conversationHistory || []),
+    }));
 
     try {
       // Get Claude's analysis
@@ -23,6 +29,7 @@ export function useAnalysis() {
           title: item.title,
           body: body,
           labels: item.labels,
+          type,
         }),
       });
 
@@ -33,9 +40,9 @@ export function useAnalysis() {
 
       const analysisData = await analysisResponse.json();
 
-      // Search for duplicates using Claude's suggested terms
+      // Search for duplicates using Claude's suggested terms (for full or duplicates type)
       let duplicates: ClaudeAnalysis['duplicates'] = [];
-      if (analysisData.duplicateSearchTerms?.length > 0) {
+      if ((type === 'full' || type === 'duplicates') && analysisData.duplicateSearchTerms?.length > 0) {
         const dupResponse = await fetch('/api/issues/search-duplicates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -56,23 +63,33 @@ export function useAnalysis() {
         }
       }
 
-      setAnalysis({
-        suggestedLabels: analysisData.suggestedLabels || [],
-        duplicates,
-        summary: analysisData.summary || '',
-        draftResponse: analysisData.draftResponse,
+      // Merge results additively for individual types
+      setAnalysis(prev => ({
+        suggestedLabels: type === 'labels' || type === 'full'
+          ? (analysisData.suggestedLabels || [])
+          : (prev?.suggestedLabels || []),
+        duplicates: type === 'duplicates' || type === 'full'
+          ? duplicates
+          : (prev?.duplicates || []),
+        summary: type === 'full'
+          ? (analysisData.summary || '')
+          : (prev?.summary || ''),
+        draftResponse: type === 'response' || type === 'full'
+          ? analysisData.draftResponse
+          : prev?.draftResponse,
         isLoading: false,
-        conversationHistory: [],
-      });
+        conversationHistory: prev?.conversationHistory || [],
+      }));
     } catch (error) {
-      setAnalysis({
-        suggestedLabels: [],
-        duplicates: [],
-        summary: '',
+      setAnalysis(prev => ({
+        suggestedLabels: prev?.suggestedLabels || [],
+        duplicates: prev?.duplicates || [],
+        summary: prev?.summary || '',
+        draftResponse: prev?.draftResponse,
         isLoading: false,
         error: error instanceof Error ? error.message : 'Analysis failed',
-        conversationHistory: [],
-      });
+        conversationHistory: prev?.conversationHistory || [],
+      }));
     }
   }, []);
 
