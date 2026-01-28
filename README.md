@@ -4,112 +4,45 @@ A visual dashboard for GitHub issue intake rotation, powered by Claude Code SDK.
 
 ---
 
-## For Positron Maintainers: Getting Started
+## Quick Start
+
+```bash
+npx issue-intake-dashboard
+```
+
+That's it! Open http://localhost:3001 in your browser.
 
 ### Prerequisites
 
-Before you begin, make sure you have:
+You need these tools installed and authenticated:
 
-1. **Node.js 18+** - Check with `node --version`
-2. **GitHub CLI** - Check with `gh --version`
-3. **AWS CLI** - Check with `aws --version`
+| Tool | Check | Setup |
+|------|-------|-------|
+| **Node.js 18+** | `node --version` | [nodejs.org](https://nodejs.org) |
+| **GitHub CLI** | `gh auth status` | `gh auth login` |
+| **AWS CLI** | `aws sts get-caller-identity` | `aws sso login` |
 
-### Step-by-Step Setup
-
-#### 1. Clone the repository
-
-```bash
-# Clone to your positron-work directory (or wherever you keep Positron-related projects)
-git clone https://github.com/nstrayer/issue-intake-dashboard.git
-cd issue-intake-dashboard
-```
-
-#### 2. Install dependencies
+### First-time setup for Posit employees
 
 ```bash
-npm install
-```
-
-#### 3. Authenticate with GitHub
-
-The dashboard uses `gh` (GitHub CLI) to fetch issues and discussions. Make sure you're logged in:
-
-```bash
-# Check if already authenticated
-gh auth status
-
-# If not authenticated, log in:
+# 1. Authenticate with GitHub (if not already)
 gh auth login
-```
 
-When prompted, select:
-- **GitHub.com** (not Enterprise)
-- **HTTPS** protocol
-- Authenticate with your browser
-
-Verify you have access to the Positron repo:
-```bash
-gh repo view posit-dev/positron --json name
-```
-
-#### 4. Configure AWS credentials for Claude
-
-The dashboard uses Claude via AWS Bedrock. You need valid AWS credentials:
-
-```bash
-# Option A: SSO login (recommended for Posit employees)
+# 2. Authenticate with AWS (if not already)
 aws sso login
 
-# Option B: If you have access keys configured
-aws configure
+# 3. Run the dashboard
+npx issue-intake-dashboard
 ```
-
-Verify your credentials work:
-```bash
-aws sts get-caller-identity
-```
-
-You should see output with your Account ID and ARN.
-
-#### 5. Start the dashboard
-
-```bash
-npm run dev
-```
-
-This starts both:
-- **Frontend** at http://localhost:3000
-- **Backend** at http://localhost:3001
-
-Open http://localhost:3000 in your browser.
-
-#### 6. Verify your setup (optional)
-
-Click the **"Verify Setup"** button in the app header. This runs automated checks for:
-- Node.js version
-- GitHub CLI authentication
-- AWS credentials
-- Access to the Positron repository
-
-If any check fails, the modal shows the specific issue and a **copy-able fix command** you can run in your terminal. After fixing, click "Re-run Checks" to confirm.
-
-Once all checks pass, click "Let's get caught up" to start the intake analysis.
 
 ---
 
 ## What This Tool Does
 
 - Visual dashboard for Positron issue intake rotation
-- Uses the same Claude-powered analysis as the CLI `/positron-intake-rotation` skill
-- Streams real-time analysis of open issues, discussions, and unlabeled items
-- Provides one-click actions to label issues and set triage status
-- Supports follow-up questions for deeper investigation
-
-## Requirements Summary
-
-- **Node.js 18+**
-- **GitHub CLI** (`gh`) authenticated with `posit-dev/positron` repo access
-- **AWS credentials** configured for Bedrock access
+- Claude-powered analysis of open issues and discussions
+- One-click actions to label issues and set triage status
+- Follow-up questions for deeper investigation
 
 ## Authentication
 
@@ -193,21 +126,28 @@ export AWS_SECRET_ACCESS_KEY=your-secret
 
 ## Development
 
+If you want to modify the dashboard, clone the repo and run in dev mode:
+
 ```bash
-# Run frontend only
-npm run dev:frontend
-
-# Run backend only
-npm run dev:backend
-
-# Run both (default)
+git clone https://github.com/nstrayer/issue-intake-dashboard.git
+cd issue-intake-dashboard
+npm install
 npm run dev
+```
 
-# Type check
-npx tsc --noEmit
+This starts:
+- **Frontend** at http://localhost:3000 (with hot reload)
+- **Backend** at http://localhost:3001
 
-# Build for production
-npm run build
+### Available scripts
+
+```bash
+npm run dev           # Run both frontend and backend
+npm run dev:frontend  # Run frontend only
+npm run dev:backend   # Run backend only
+npm run build         # Build for production
+npm run start         # Run production server
+npx tsc --noEmit      # Type check
 ```
 
 ## Directory Structure
@@ -284,15 +224,13 @@ aws configure
 
 **Cause:** AWS credentials not being passed to Claude correctly.
 
-**Fix:** Check the terminal where you ran `npm run dev`. You should see:
+**Fix:** Check the terminal output. You should see:
 ```
-Checking AWS credentials...
-✓ AWS credentials discovered
-  Account: 123456789012
-  ARN: arn:aws:iam::123456789012:user/yourname
+Loaded Claude Code settings with env config
+Using Bedrock authentication
 ```
 
-If you don't see this, run `aws sso login` and restart the server.
+If you don't see this, run `aws sso login` and restart the dashboard.
 
 #### "No issues found" or empty results
 
@@ -307,12 +245,11 @@ gh repo view posit-dev/positron --json name
 
 #### Page won't load / connection refused
 
-**Cause:** Backend server not running.
+**Cause:** Server not running.
 
-**Fix:** Check the terminal for errors. Make sure both servers started:
+**Fix:** Check the terminal for errors. You should see:
 ```
-[frontend] VITE v6.0.7  ready in 500ms
-[backend]  Server running on port 3001
+Server running on port 3001
 ```
 
 #### SSO session expired
@@ -322,26 +259,31 @@ gh repo view posit-dev/positron --json name
 **Fix:**
 ```bash
 aws sso login
-# Then restart the dev server
-npm run dev
+# Then restart the dashboard
+npx issue-intake-dashboard
 ```
 
-#### WebSocket disconnects / analysis stops mid-stream
+#### Analysis stops mid-stream
 
-**Cause:** Backend crashed or timed out.
+**Cause:** Server crashed or timed out.
 
-**Fix:** Check terminal for error messages. Restart with `npm run dev`.
+**Fix:** Check terminal for error messages. Restart the dashboard.
 
 ## Environment Variables (Optional)
 
-The server auto-discovers credentials, but you can override with a `.env` file:
+```bash
+# Use a different port
+PORT=8080 npx issue-intake-dashboard
+
+# Point to a different positron repo location
+POSITRON_REPO_PATH=/path/to/positron npx issue-intake-dashboard
+```
+
+For development, you can create a `.env` file:
 
 ```bash
-# Only needed if automatic discovery doesn't work
 CLAUDE_CODE_USE_BEDROCK=1
 AWS_REGION=us-east-1
 AWS_PROFILE=my-custom-profile
-
-# Server port (default: 3001)
 PORT=3001
 ```

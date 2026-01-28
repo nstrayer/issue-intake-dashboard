@@ -55,6 +55,13 @@ if (existsSync(positronRepoPath)) {
 
 app.use(express.json());
 
+// Serve static frontend in production mode
+const distPath = resolve(__dirname, '../dist');
+if (existsSync(distPath)) {
+	console.log(`Serving static frontend from: ${distPath}`);
+	app.use(express.static(distPath));
+}
+
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
 	res.json({ status: 'ok' });
@@ -409,6 +416,14 @@ async function handleQuickAction(
 				: (error instanceof Error ? error.message : 'Failed to execute action'),
 		}));
 	}
+}
+
+// SPA fallback: serve index.html for non-API routes (must be after API routes)
+const indexPath = resolve(distPath, 'index.html');
+if (existsSync(indexPath)) {
+	app.get('*', (_req, res) => {
+		res.sendFile(indexPath);
+	});
 }
 
 const PORT = process.env.PORT || 3001;

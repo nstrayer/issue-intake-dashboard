@@ -1,13 +1,45 @@
 {
 	"name": "issue-intake-dashboard",
 	"version": "1.0.0",
+	"description": "Visual dashboard for GitHub issue intake rotation, powered by Claude Code SDK",
 	"type": "module",
+	"bin": {
+		"issue-intake-dashboard": "./bin/cli.js"
+	},
+	"files": [
+		"bin",
+		"dist",
+		"server",
+		"src",
+		"scripts",
+		"index.html",
+		"vite.config.ts",
+		"tailwind.config.js",
+		"postcss.config.js",
+		"tsconfig.json",
+		"tsconfig.server.json"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nstrayer/issue-intake-dashboard.git"
+	},
+	"keywords": [
+		"github",
+		"issues",
+		"dashboard",
+		"claude",
+		"positron"
+	],
+	"author": "Nick Strayer",
+	"license": "MIT",
 	"scripts": {
 		"dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
 		"dev:frontend": "vite",
 		"dev:backend": "tsx watch server/index.ts",
-		"build": "tsc && vite build",
+		"build": "vite build",
 		"preview": "vite preview",
+		"start": "node --import tsx server/index.ts",
+		"prepublishOnly": "npm run build",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
@@ -22,6 +54,7 @@
 		"recharts": "^2.15.0",
 		"rehype-raw": "^7.0.0",
 		"remark-gfm": "^4.0.1",
+		"tsx": "^4.19.2",
 		"ws": "^8.18.0"
 	},
 	"devDependencies": {
@@ -39,7 +72,6 @@
 		"jsdom": "^27.4.0",
 		"postcss": "^8.4.49",
 		"tailwindcss": "^3.4.17",
-		"tsx": "^4.19.2",
 		"typescript": "^5.7.3",
 		"vite": "^6.0.7",
 		"vitest": "^4.0.18"
