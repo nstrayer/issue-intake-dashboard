@@ -140,7 +140,10 @@ function App() {
   ).length;
 
   return (
-    <div className="h-screen flex flex-col bg-[#0d1117]">
+    <div className="h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+      {/* Noise texture overlay */}
+      <div className="noise-overlay" />
+
       <ProgressHeader
         totalCount={queue.totalCount}
         completedCount={completedCount}
@@ -153,21 +156,35 @@ function App() {
       />
 
       {queue.warnings.length > 0 && (
-        <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-2 mx-4 mt-2 rounded-lg">
-          <div className="flex items-start gap-2">
-            <span className="text-yellow-400 font-medium">Warning:</span>
+        <div
+          className="mx-6 mt-4 px-4 py-3 rounded-lg animate-slideUp"
+          style={{
+            background: 'rgba(229, 168, 85, 0.1)',
+            border: '1px solid rgba(229, 168, 85, 0.25)'
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
             <div>
               {queue.warnings.map((warning, i) => (
-                <p key={i}>{warning}</p>
+                <p key={i} className="text-sm" style={{ color: 'var(--text-secondary)' }}>{warning}</p>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      <main className="flex-1 flex overflow-hidden">
-        {/* Queue list */}
-        <div className="w-1/2 lg:w-3/5 border-r border-gray-800 overflow-hidden">
+      <main className="flex-1 flex overflow-hidden mt-4">
+        {/* Queue list - takes more space */}
+        <div
+          className="w-[55%] lg:w-[60%] overflow-hidden flex flex-col mx-6 mb-6 rounded-xl"
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
           <QueueList
             items={queue.items}
             selectedId={selectedItem?.id ?? null}
@@ -178,7 +195,13 @@ function App() {
         </div>
 
         {/* Side panel */}
-        <div className="w-1/2 lg:w-2/5 bg-[#161b22] overflow-hidden">
+        <div
+          className="w-[45%] lg:w-[40%] overflow-hidden flex flex-col mr-6 mb-6 rounded-xl"
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
           <SidePanel
             item={selectedItem}
             analysis={analysis}
@@ -200,8 +223,19 @@ function App() {
 
       {/* Error toast */}
       {queue.error && (
-        <div className="fixed bottom-4 right-4 bg-red-900/90 text-red-200 px-4 py-2 rounded-lg shadow-lg">
-          {queue.error}
+        <div
+          className="fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-xl animate-slideUp"
+          style={{
+            background: 'rgba(229, 105, 90, 0.95)',
+            color: 'white'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm font-medium">{queue.error}</span>
+          </div>
         </div>
       )}
     </div>

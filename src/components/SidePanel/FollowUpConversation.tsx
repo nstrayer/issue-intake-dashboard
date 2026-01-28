@@ -35,14 +35,16 @@ export function FollowUpConversation({
   };
 
   return (
-    <div className="flex flex-col border-t border-gray-700 mt-4 pt-4">
-      <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Follow-up Questions</h4>
+    <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+      <h4 className="text-xs font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        Follow-up Questions
+      </h4>
 
       {/* Conversation history */}
       {conversationHistory.length > 0 && (
         <div
           ref={scrollRef}
-          className="max-h-64 overflow-y-auto space-y-3 mb-3 pr-1"
+          className="max-h-64 overflow-y-auto space-y-3 mb-4 pr-1"
         >
           {conversationHistory.map((message) => (
             <div
@@ -50,14 +52,15 @@ export function FollowUpConversation({
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-200'
-                }`}
+                className="max-w-[85%] px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: message.role === 'user' ? 'var(--accent)' : 'var(--bg-tertiary)',
+                  color: message.role === 'user' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  border: message.role === 'assistant' ? '1px solid var(--border-subtle)' : 'none'
+                }}
               >
                 {message.role === 'assistant' ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
+                  <div className="markdown-content">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {message.content}
                     </ReactMarkdown>
@@ -72,11 +75,15 @@ export function FollowUpConversation({
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-gray-700 text-gray-400 px-3 py-2 rounded-lg text-sm flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
+              <div
+                className="px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                <LoadingDots />
                 <span>Thinking...</span>
               </div>
             </div>
@@ -94,35 +101,78 @@ export function FollowUpConversation({
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={isLoading ? "Waiting for response..." : "Ask a follow-up question..."}
             disabled={isLoading}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)'
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px var(--accent-dim)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           />
-          {isLoading && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <svg className="animate-spin h-4 w-4 text-blue-400" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-              </svg>
-            </div>
-          )}
         </div>
         <button
           type="submit"
           disabled={!inputValue.trim() || isLoading}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            background: inputValue.trim() && !isLoading ? 'var(--accent)' : 'var(--bg-tertiary)',
+            color: inputValue.trim() && !isLoading ? 'var(--bg-primary)' : 'var(--text-muted)'
+          }}
+          onMouseEnter={(e) => {
+            if (inputValue.trim() && !isLoading) {
+              e.currentTarget.style.background = 'var(--accent-muted)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (inputValue.trim() && !isLoading) {
+              e.currentTarget.style.background = 'var(--accent)';
+            }
+          }}
         >
           {isLoading ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-              </svg>
-              <span>...</span>
-            </>
+            <LoadingDots />
           ) : (
-            'Ask'
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
           )}
         </button>
       </form>
+    </div>
+  );
+}
+
+function LoadingDots() {
+  return (
+    <div className="flex gap-1">
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{
+          background: 'currentColor',
+          animation: 'pulse 1.4s ease-in-out infinite'
+        }}
+      />
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{
+          background: 'currentColor',
+          animation: 'pulse 1.4s ease-in-out 0.2s infinite'
+        }}
+      />
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{
+          background: 'currentColor',
+          animation: 'pulse 1.4s ease-in-out 0.4s infinite'
+        }}
+      />
     </div>
   );
 }
