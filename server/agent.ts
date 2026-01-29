@@ -58,7 +58,7 @@ export class AuthenticationRequiredError extends Error {
  * Detect if an error is an authentication-related error.
  * This happens when the CLI outputs interactive text instead of JSON.
  */
-function isAuthError(error: unknown): boolean {
+export function isAuthError(error: unknown): boolean {
 	if (error instanceof Error) {
 		const msg = error.message.toLowerCase();
 		// JSON parsing error with "Attempting" suggests auth prompt in stdout
