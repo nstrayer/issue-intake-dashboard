@@ -1,9 +1,10 @@
 interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRestartTour?: () => void;
 }
 
-export function HelpModal({ isOpen, onClose }: HelpModalProps) {
+export function HelpModal({ isOpen, onClose, onRestartTour }: HelpModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -46,25 +47,51 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           <ShortcutRow keys={['?']} description="Show this help" />
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full mt-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-150"
-          style={{
-            background: 'var(--bg-tertiary)',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border-subtle)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-elevated)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--bg-tertiary)';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }}
-        >
-          Close
-        </button>
+        <div className="flex flex-col gap-2 mt-6">
+          {onRestartTour && (
+            <button
+              onClick={() => {
+                onClose();
+                onRestartTour();
+              }}
+              className="w-full py-2.5 text-sm font-medium rounded-lg transition-all duration-150"
+              style={{
+                background: 'var(--accent-dim)',
+                color: 'var(--accent)',
+                border: '1px solid var(--accent)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--accent)';
+                e.currentTarget.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--accent-dim)';
+                e.currentTarget.style.color = 'var(--accent)';
+              }}
+            >
+              Restart Tour
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 text-sm font-medium rounded-lg transition-all duration-150"
+            style={{
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-elevated)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--bg-tertiary)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

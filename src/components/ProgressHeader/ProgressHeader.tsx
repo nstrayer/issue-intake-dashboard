@@ -10,6 +10,8 @@ interface ProgressHeaderProps {
   onInfoClick: () => void;
   onConfigClick?: () => void;
   onEnvironmentClick: () => void;
+  isDemoMode?: boolean;
+  onDisableDemoMode?: () => void;
 }
 
 export function ProgressHeader({
@@ -24,12 +26,14 @@ export function ProgressHeader({
   onInfoClick,
   onConfigClick,
   onEnvironmentClick,
+  isDemoMode = false,
+  onDisableDemoMode,
 }: ProgressHeaderProps) {
   const remainingCount = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <header className="px-6 py-5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+    <header data-tour="header" className="px-6 py-5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center justify-between">
         {/* Left: Branding and metrics */}
         <div className="flex items-center gap-8">
@@ -103,6 +107,34 @@ export function ProgressHeader({
                 <span className="text-xs font-medium">{staleCount} stale</span>
               </div>
             )}
+
+            {/* Demo mode badge */}
+            {isDemoMode && (
+              <button
+                onClick={onDisableDemoMode}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all duration-150"
+                style={{
+                  background: 'rgba(212, 136, 15, 0.15)',
+                  color: 'var(--warning)',
+                  border: '1px solid rgba(212, 136, 15, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(212, 136, 15, 0.25)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(212, 136, 15, 0.15)';
+                }}
+                title="Click to disable demo mode"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span className="text-xs font-medium">Demo</span>
+                <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -119,6 +151,7 @@ export function ProgressHeader({
           <HeaderButton
             onClick={onEnvironmentClick}
             label="Env"
+            dataTour="env-button"
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -153,6 +186,7 @@ export function ProgressHeader({
             onClick={onHelpClick}
             label="Help"
             shortcut="?"
+            dataTour="help-button"
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -188,18 +222,21 @@ function HeaderButton({
   disabled,
   label,
   shortcut,
-  icon
+  icon,
+  dataTour,
 }: {
   onClick: () => void;
   disabled?: boolean;
   label: string;
   shortcut?: string;
   icon: React.ReactNode;
+  dataTour?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      data-tour={dataTour}
       className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 disabled:opacity-40"
       style={{
         color: 'var(--text-secondary)',

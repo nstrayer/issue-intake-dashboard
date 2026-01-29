@@ -94,7 +94,7 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
   );
 
   return (
-    <div className="h-full flex flex-col">
+    <div data-tour="side-panel" className="h-full flex flex-col">
       {/* Header */}
       <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="flex items-start justify-between gap-4">
@@ -443,6 +443,7 @@ function AnalyzeDropdown({
       <button
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
+        data-tour="analyze-button"
         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
         style={{
           background: 'var(--bg-tertiary)',
@@ -556,6 +557,7 @@ function ActionBar({
       {/* Claude Code button - right side */}
       <button
         onClick={onCopyPrompt}
+        data-tour="copy-claude-code"
         className="group relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
         style={{
           background: copyFeedback ? 'var(--success)' : 'var(--bg-tertiary)',

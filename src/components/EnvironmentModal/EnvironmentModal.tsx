@@ -27,9 +27,11 @@ interface SetupCheckResponse {
 interface EnvironmentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isDemoMode?: boolean;
+  onToggleDemoMode?: () => void;
 }
 
-export function EnvironmentModal({ isOpen, onClose }: EnvironmentModalProps) {
+export function EnvironmentModal({ isOpen, onClose, isDemoMode, onToggleDemoMode }: EnvironmentModalProps) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<SetupCheckResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export function EnvironmentModal({ isOpen, onClose }: EnvironmentModalProps) {
       onClick={onClose}
     >
       <div
+        data-tour="env-modal"
         className="w-full max-w-lg mx-4 max-h-[80vh] flex flex-col rounded-xl overflow-hidden animate-slideUp"
         style={{
           background: 'var(--bg-secondary)',
@@ -252,6 +255,38 @@ export function EnvironmentModal({ isOpen, onClose }: EnvironmentModalProps) {
                     {data.checks.filter(c => c.status !== 'pass' && c.fixCommand).map((check, i) => (
                       <CheckFixItem key={i} check={check} onCopyCommand={copyCommand} />
                     ))}
+                  </div>
+                </EnvSection>
+              )}
+
+              {/* Demo Mode toggle */}
+              {onToggleDemoMode !== undefined && (
+                <EnvSection title="Demo Mode">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        Show demo data
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        Display sample issues and discussions for testing
+                      </p>
+                    </div>
+                    <button
+                      onClick={onToggleDemoMode}
+                      className="relative w-11 h-6 rounded-full transition-colors duration-200"
+                      style={{
+                        background: isDemoMode ? 'var(--accent)' : 'var(--bg-tertiary)',
+                        border: `1px solid ${isDemoMode ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                      }}
+                    >
+                      <span
+                        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-200"
+                        style={{
+                          background: isDemoMode ? 'white' : 'var(--text-muted)',
+                          transform: isDemoMode ? 'translateX(20px)' : 'translateX(0)',
+                        }}
+                      />
+                    </button>
                   </div>
                 </EnvSection>
               )}

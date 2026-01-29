@@ -140,11 +140,11 @@ export function QueueList({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div data-tour="queue-list" className="flex flex-col h-full">
       {/* Filter bar */}
       <div className="p-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         {/* Mode toggle tabs */}
-        <div className="flex gap-1 mb-3 p-1 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
+        <div data-tour="filter-tabs" className="flex gap-1 mb-3 p-1 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
           <button
             onClick={() => onFilterModeChange('standard')}
             className="flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
@@ -354,6 +354,7 @@ export function QueueList({
           sortBy={filters.issuesSortBy}
           onSortChange={(sortBy) => onFiltersChange({ ...filters, issuesSortBy: sortBy })}
           isLoading={isLoading}
+          showFirstItemTour={issues.length > 0}
         />
 
         {/* Divider */}
@@ -376,6 +377,7 @@ export function QueueList({
           sortBy={filters.discussionsSortBy}
           onSortChange={(sortBy) => onFiltersChange({ ...filters, discussionsSortBy: sortBy })}
           isLoading={isLoading}
+          showFirstItemTour={issues.length === 0 && discussions.length > 0}
         />
       </div>
 
@@ -437,6 +439,7 @@ function TypePanel({
   sortBy,
   onSortChange,
   isLoading = false,
+  showFirstItemTour = false,
 }: {
   title: string;
   type: 'issue' | 'discussion';
@@ -450,6 +453,7 @@ function TypePanel({
   sortBy: SortOrder;
   onSortChange: (sortBy: SortOrder) => void;
   isLoading?: boolean;
+  showFirstItemTour?: boolean;
 }) {
   const typeColor = type === 'issue' ? 'var(--success)' : 'var(--info)';
 
@@ -553,6 +557,7 @@ function TypePanel({
                       isSelected={item.id === selectedId}
                       onClick={() => onSelect(item)}
                       index={index}
+                      isFirstItem={showFirstItemTour && index === 0}
                     />
                   ))}
                 </div>
@@ -573,6 +578,7 @@ function TypePanel({
                   isSelected={item.id === selectedId}
                   onClick={() => onSelect(item)}
                   index={index}
+                  isFirstItem={showFirstItemTour && index === 0}
                 />
               ))}
             </div>
@@ -614,16 +620,19 @@ function QueueItemRow({
   item,
   isSelected,
   onClick,
-  index
+  index,
+  isFirstItem = false,
 }: {
   item: QueueItem;
   isSelected: boolean;
   onClick: () => void;
   index: number;
+  isFirstItem?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      data-tour={isFirstItem ? 'queue-item' : undefined}
       className="w-full px-4 py-2.5 text-left transition-all duration-150 group"
       style={{
         background: isSelected ? 'var(--bg-tertiary)' : 'transparent',

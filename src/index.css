@@ -355,3 +355,27 @@ body {
 	from { transform: rotate(0deg); }
 	to { transform: rotate(360deg); }
 }
+
+/* React Joyride Tour Styling */
+.react-joyride__tooltip {
+	font-family: 'DM Sans', system-ui, -apple-system, sans-serif !important;
+}
+
+.react-joyride__spotlight {
+	border-radius: 12px !important;
+}
+
+/* Ensure tour overlay is above modals */
+.react-joyride__overlay {
+	z-index: 9999 !important;
+}
+
+/* Tour button styling to match app theme */
+.__floater__body button[data-action="primary"] {
+	background: var(--accent) !important;
+	border-radius: 8px !important;
+}
+
+.__floater__body button[data-action="primary"]:hover {
+	background: var(--accent-muted) !important;
+}

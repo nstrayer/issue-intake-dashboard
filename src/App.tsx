@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ProgressHeader } from './components/ProgressHeader/ProgressHeader';
 import { QueueList, QueueFilters, FilterMode } from './components/QueueList/QueueList';
 import { SidePanel } from './components/SidePanel/SidePanel';
@@ -6,11 +6,15 @@ import { HelpModal } from './components/HelpModal/HelpModal';
 import { InfoModal } from './components/InfoModal/InfoModal';
 import { IntakeConfigModal } from './components/IntakeConfigModal/IntakeConfigModal';
 import { EnvironmentModal } from './components/EnvironmentModal/EnvironmentModal';
+import { Tour } from './components/Tour/Tour';
 import { useIntakeQueue, IntakeFilterOptions, DEFAULT_INTAKE_FILTERS } from './hooks/useIntakeQueue';
 import { useAnalysis, AnalysisType } from './hooks/useAnalysis';
 import { useAIFilter } from './hooks/useAIFilter';
 import { useConfig } from './hooks/useConfig';
+import { useDemoMode } from './hooks/useDemoMode';
+import { useTour } from './hooks/useTour';
 import { QueueItem } from './types/intake';
+import { ALL_DEMO_ITEMS } from './data/demoData';
 
 const DEFAULT_FILTERS: QueueFilters = {
   hasLabels: 'all',
@@ -49,6 +53,34 @@ function App() {
   const [showInfo, setShowInfo] = useState(false);
   const [showIntakeConfig, setShowIntakeConfig] = useState(false);
   const [showEnvironment, setShowEnvironment] = useState(false);
+
+  // Demo mode - auto-enables when queue is empty
+  const demoMode = useDemoMode({
+    autoEnableWhenEmpty: true,
+    realItemCount: queue.items.length,
+  });
+
+  // Merge demo data with real data when demo mode is active
+  const displayItems = useMemo(() => {
+    if (demoMode.isDemoMode) {
+      return [...queue.items, ...ALL_DEMO_ITEMS];
+    }
+    return queue.items;
+  }, [queue.items, demoMode.isDemoMode]);
+
+  // Tour - select first item helper for step 4
+  const selectFirstItem = useCallback(() => {
+    if (displayItems.length > 0 && !selectedItem) {
+      setSelectedItem(displayItems[0]);
+    }
+  }, [displayItems, selectedItem]);
+
+  // Tour state management
+  const tour = useTour({
+    onOpenEnvironmentModal: () => setShowEnvironment(true),
+    onCloseEnvironmentModal: () => setShowEnvironment(false),
+    onSelectFirstItem: selectFirstItem,
+  });
 
   // Handle includeAllItems toggle
   const handleIncludeAllItemsChange = useCallback((value: boolean) => {
@@ -128,7 +160,7 @@ function App() {
         return;
       }
 
-      const items = queue.items;
+      const items = displayItems;
       const currentIndex = selectedItem ? items.findIndex(i => i.id === selectedItem.id) : -1;
 
       switch (e.key) {
@@ -172,12 +204,15 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [queue.items, queue.isLoading, queue.refresh, selectedItem, handleSelectItem, handleClosePanel]);
+  }, [displayItems, queue.isLoading, queue.refresh, selectedItem, handleSelectItem, handleClosePanel]);
 
   // Calculate completed count (items with status labels or triaged)
-  const completedCount = queue.items.filter(item =>
+  const completedCount = displayItems.filter(item =>
     item.labels.some(l => l.startsWith('status:'))
   ).length;
+
+  // Calculate stale count from display items
+  const staleCount = displayItems.filter(item => item.isStale).length;
 
   return (
     <div className="h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
@@ -185,9 +220,9 @@ function App() {
       <div className="noise-overlay" />
 
       <ProgressHeader
-        totalCount={queue.totalCount}
+        totalCount={displayItems.length}
         completedCount={completedCount}
-        staleCount={queue.staleCount}
+        staleCount={staleCount}
         isLoading={queue.isLoading}
         lastUpdated={queue.fetchedAt}
         repoName={config?.repo.fullName}
@@ -196,6 +231,8 @@ function App() {
         onInfoClick={() => setShowInfo(true)}
         onConfigClick={() => setShowIntakeConfig(true)}
         onEnvironmentClick={() => setShowEnvironment(true)}
+        isDemoMode={demoMode.isDemoMode}
+        onDisableDemoMode={demoMode.disableDemoMode}
       />
 
       {queue.warnings.length > 0 && (
@@ -229,7 +266,7 @@ function App() {
           }}
         >
           <QueueList
-            items={queue.items}
+            items={displayItems}
             selectedId={selectedItem?.id ?? null}
             onSelect={handleSelectItem}
             filters={filters}
@@ -273,7 +310,11 @@ function App() {
       </main>
 
       {/* Help modal */}
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        onRestartTour={tour.resetTour}
+      />
 
       {/* Info modal */}
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} />
@@ -286,7 +327,19 @@ function App() {
       />
 
       {/* Environment modal */}
-      <EnvironmentModal isOpen={showEnvironment} onClose={() => setShowEnvironment(false)} />
+      <EnvironmentModal
+        isOpen={showEnvironment}
+        onClose={() => setShowEnvironment(false)}
+        isDemoMode={demoMode.isDemoMode}
+        onToggleDemoMode={demoMode.toggleDemoMode}
+      />
+
+      {/* Tour component */}
+      <Tour
+        isRunning={tour.isRunning}
+        stepIndex={tour.stepIndex}
+        onCallback={tour.handleJoyrideCallback}
+      />
 
       {/* Error toast */}
       {queue.error && (
