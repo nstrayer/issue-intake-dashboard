@@ -1,10 +1,13 @@
+import { ToolStatus } from '../../hooks/useEnvironmentStatus';
+
 interface ProgressHeaderProps {
-  totalCount: number;
-  completedCount: number;
-  staleCount: number;
   isLoading: boolean;
   lastUpdated: Date | null;
   repoName?: string;
+  repoPath: string;
+  toolStatuses: ToolStatus[];
+  envHasCriticalFailures: boolean;
+  envHasWarnings: boolean;
   onRefresh: () => void;
   onHelpClick: () => void;
   onInfoClick: () => void;
@@ -15,12 +18,13 @@ interface ProgressHeaderProps {
 }
 
 export function ProgressHeader({
-  totalCount,
-  completedCount,
-  staleCount,
   isLoading,
   lastUpdated,
   repoName,
+  repoPath,
+  toolStatuses,
+  envHasCriticalFailures,
+  envHasWarnings,
   onRefresh,
   onHelpClick,
   onInfoClick,
@@ -29,8 +33,8 @@ export function ProgressHeader({
   isDemoMode = false,
   onDisableDemoMode,
 }: ProgressHeaderProps) {
-  const remainingCount = totalCount - completedCount;
-  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  // Truncate repo path for display
+  const truncatedPath = truncateRepoPath(repoPath, 30);
 
   return (
     <header data-tour="header" className="px-6 py-5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -51,60 +55,86 @@ export function ProgressHeader({
               <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Triage Sidekick
               </h1>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{repoName || 'GitHub'}</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Issue Triage</p>
             </div>
           </div>
 
           {/* Divider */}
           <div className="h-8 w-px" style={{ background: 'var(--border-subtle)' }} />
 
-          {/* Metrics */}
+          {/* Repository Identity */}
           <div className="flex items-center gap-6">
-            {/* Remaining count - prominent */}
-            <div className="flex items-baseline gap-2">
-              <span
-                className="text-3xl font-semibold tabular-nums"
+            {/* Stacked repo info */}
+            <div className="flex flex-col">
+              {/* Primary: GitHub repo with icon */}
+              <a
+                href={`https://github.com/${repoName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
                 style={{ color: 'var(--text-primary)' }}
               >
-                {remainingCount}
-              </span>
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                to review
-              </span>
-            </div>
-
-            {/* Progress bar */}
-            <div className="flex items-center gap-3">
-              <div
-                className="w-28 h-1.5 rounded-full overflow-hidden"
-                style={{ background: 'var(--bg-tertiary)' }}
+                <svg className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                {repoName || 'No repository'}
+              </a>
+              {/* Secondary: Local path */}
+              <button
+                onClick={onEnvironmentClick}
+                className="flex items-center gap-1.5 text-xs mt-0.5 text-left hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+                title={repoPath || 'No repo path set'}
               >
-                <div
-                  className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{
-                    width: `${progressPercent}%`,
-                    background: progressPercent === 100 ? 'var(--success)' : 'var(--accent)'
-                  }}
-                />
-              </div>
-              <span className="text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
-                {Math.round(progressPercent)}%
-              </span>
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                {truncatedPath || 'No local path'}
+              </button>
             </div>
 
-            {/* Stale badge */}
-            {staleCount > 0 && (
+            {/* Tool statuses - compact dots with labels */}
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={onEnvironmentClick}
+              title="Click to view environment details"
+            >
+              {toolStatuses.map((tool) => (
+                <div
+                  key={tool.name}
+                  className="flex items-center gap-1.5"
+                  title={`${tool.name}: ${tool.message}`}
+                >
+                  <ToolStatusDot status={tool.status} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {tool.name}
+                  </span>
+                </div>
+              ))}
+              {toolStatuses.length === 0 && (
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Loading...
+                </span>
+              )}
+            </div>
+
+            {/* Overall status indicator */}
+            {(envHasCriticalFailures || envHasWarnings) && (
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer"
+                onClick={onEnvironmentClick}
                 style={{
-                  background: 'rgba(229, 168, 85, 0.12)',
-                  color: 'var(--warning)'
+                  background: envHasCriticalFailures ? 'rgba(229, 105, 90, 0.12)' : 'rgba(229, 168, 85, 0.12)',
+                  color: envHasCriticalFailures ? 'var(--error)' : 'var(--warning)'
                 }}
+                title="Click to view environment details"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <span className="text-xs font-medium">{staleCount} stale</span>
+                <span className="text-xs font-medium">
+                  {envHasCriticalFailures ? 'Issues' : 'Warnings'}
+                </span>
               </div>
             )}
 
@@ -268,4 +298,39 @@ function HeaderButton({
       )}
     </button>
   );
+}
+
+function ToolStatusDot({ status }: { status: 'pass' | 'warn' | 'fail' }) {
+  const colors = {
+    pass: 'var(--success)',
+    warn: 'var(--warning)',
+    fail: 'var(--error)',
+  };
+
+  return (
+    <span
+      className="w-2 h-2 rounded-full flex-shrink-0"
+      style={{ background: colors[status] }}
+    />
+  );
+}
+
+function truncateRepoPath(path: string, maxLength: number): string {
+  if (!path) return '';
+  if (path.length <= maxLength) return path;
+
+  // Try to show the last part of the path
+  const parts = path.split('/');
+  let result = parts[parts.length - 1];
+
+  // Add parent directories until we exceed maxLength
+  for (let i = parts.length - 2; i >= 0; i--) {
+    const candidate = parts[i] + '/' + result;
+    if (candidate.length > maxLength - 3) {
+      return '…/' + result;
+    }
+    result = candidate;
+  }
+
+  return result;
 }

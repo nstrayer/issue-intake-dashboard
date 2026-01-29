@@ -13,6 +13,7 @@ import { useAIFilter } from './hooks/useAIFilter';
 import { useConfig } from './hooks/useConfig';
 import { useDemoMode } from './hooks/useDemoMode';
 import { useTour } from './hooks/useTour';
+import { useEnvironmentStatus } from './hooks/useEnvironmentStatus';
 import { QueueItem } from './types/intake';
 import { ALL_DEMO_ITEMS } from './data/demoData';
 
@@ -46,6 +47,7 @@ function App() {
   const { analysis, analyzeItem, clearAnalysis, sendFollowUp, followUpLoading } = useAnalysis();
   const aiFilter = useAIFilter();
   const { config } = useConfig();
+  const envStatus = useEnvironmentStatus();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [filterMode, setFilterMode] = useState<FilterMode>('standard');
@@ -206,26 +208,19 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [displayItems, queue.isLoading, queue.refresh, selectedItem, handleSelectItem, handleClosePanel]);
 
-  // Calculate completed count (items with status labels or triaged)
-  const completedCount = displayItems.filter(item =>
-    item.labels.some(l => l.startsWith('status:'))
-  ).length;
-
-  // Calculate stale count from display items
-  const staleCount = displayItems.filter(item => item.isStale).length;
-
   return (
     <div className="h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
       {/* Noise texture overlay */}
       <div className="noise-overlay" />
 
       <ProgressHeader
-        totalCount={displayItems.length}
-        completedCount={completedCount}
-        staleCount={staleCount}
         isLoading={queue.isLoading}
         lastUpdated={queue.fetchedAt}
         repoName={config?.repo.fullName}
+        repoPath={envStatus.targetRepoPath}
+        toolStatuses={envStatus.toolStatuses}
+        envHasCriticalFailures={envStatus.hasCriticalFailures}
+        envHasWarnings={envStatus.hasWarnings}
         onRefresh={queue.refresh}
         onHelpClick={() => setShowHelp(true)}
         onInfoClick={() => setShowInfo(true)}
