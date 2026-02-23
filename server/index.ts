@@ -118,6 +118,7 @@ app.get('/api/config', (_req, res) => {
 			description: repoDescription,
 		},
 		intakeCriteria: intakeConfig.intakeCriteria,
+		pollIntervalSeconds: intakeConfig.pollIntervalSeconds,
 	});
 });
 

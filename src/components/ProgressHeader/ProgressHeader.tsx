@@ -13,6 +13,7 @@ interface ProgressHeaderProps {
   onInfoClick: () => void;
   onConfigClick?: () => void;
   onEnvironmentClick: () => void;
+  pollIntervalSeconds?: number;
   isDemoMode?: boolean;
   onDisableDemoMode?: () => void;
 }
@@ -30,6 +31,7 @@ export function ProgressHeader({
   onInfoClick,
   onConfigClick,
   onEnvironmentClick,
+  pollIntervalSeconds,
   isDemoMode = false,
   onDisableDemoMode,
 }: ProgressHeaderProps) {
@@ -171,9 +173,16 @@ export function ProgressHeader({
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
           {lastUpdated && (
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            <div className="text-right">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              {pollIntervalSeconds && (
+                <div className="text-[10px]" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+                  polling every {pollIntervalSeconds >= 60 ? `${pollIntervalSeconds / 60}m` : `${pollIntervalSeconds}s`}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="h-6 w-px" style={{ background: 'var(--border-subtle)' }} />

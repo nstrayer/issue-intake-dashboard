@@ -10,6 +10,7 @@ export interface RepoConfig {
 export interface AppConfig {
   repo: RepoConfig;
   intakeCriteria: string;
+  pollIntervalSeconds: number;
 }
 
 export function useConfig() {

@@ -50,7 +50,7 @@ function App() {
   const aiFilter = useAIFilter();
   const { config } = useConfig();
   const envStatus = useEnvironmentStatus();
-  const { notification, dismiss: dismissNotification } = useNewItemNotifications();
+  const { notification, dismiss: dismissNotification } = useNewItemNotifications(queue.refresh);
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [filterMode, setFilterMode] = useState<FilterMode>('standard');
@@ -224,6 +224,7 @@ function App() {
         toolStatuses={envStatus.toolStatuses}
         envHasCriticalFailures={envStatus.hasCriticalFailures}
         envHasWarnings={envStatus.hasWarnings}
+        pollIntervalSeconds={config?.pollIntervalSeconds}
         onRefresh={queue.refresh}
         onHelpClick={() => setShowHelp(true)}
         onInfoClick={() => setShowInfo(true)}
