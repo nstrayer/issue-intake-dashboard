@@ -5,8 +5,11 @@ import { type RepoConfig, getDefaultIntakeCriteria } from './config.js';
 
 export interface IntakeConfig {
 	intakeCriteria: string;
+	pollIntervalSeconds: number;
 	version: number;
 }
+
+export const DEFAULT_POLL_INTERVAL_SECONDS = 90;
 
 const CONFIG_VERSION = 1;
 
@@ -53,6 +56,7 @@ export function loadIntakeConfig(repoConfig: RepoConfig, targetRepoPath?: string
 				console.log(`Loaded intake config from: ${repoConfigPath}`);
 				return {
 					intakeCriteria: config.intakeCriteria,
+					pollIntervalSeconds: config.pollIntervalSeconds || DEFAULT_POLL_INTERVAL_SECONDS,
 					version: config.version || CONFIG_VERSION,
 				};
 			}
@@ -71,6 +75,7 @@ export function loadIntakeConfig(repoConfig: RepoConfig, targetRepoPath?: string
 				console.log(`Loaded intake config from: ${userConfigPath}`);
 				return {
 					intakeCriteria: config.intakeCriteria,
+					pollIntervalSeconds: config.pollIntervalSeconds || DEFAULT_POLL_INTERVAL_SECONDS,
 					version: config.version || CONFIG_VERSION,
 				};
 			}
@@ -82,6 +87,7 @@ export function loadIntakeConfig(repoConfig: RepoConfig, targetRepoPath?: string
 	// 3. Return default criteria
 	return {
 		intakeCriteria: getDefaultIntakeCriteria(repoConfig.fullName),
+		pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
 		version: CONFIG_VERSION,
 	};
 }
@@ -102,6 +108,7 @@ export function saveIntakeConfig(repoConfig: RepoConfig, config: IntakeConfig): 
 	const content = JSON.stringify(
 		{
 			intakeCriteria: config.intakeCriteria,
+			pollIntervalSeconds: config.pollIntervalSeconds,
 			version: CONFIG_VERSION,
 		},
 		null,

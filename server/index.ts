@@ -83,6 +83,7 @@ fetchRepoMetadata().then(meta => {
 // Background poller for new item notifications
 const poller = new BackgroundPoller({
 	filters: DEFAULT_INTAKE_FILTERS,
+	pollIntervalMs: intakeConfig.pollIntervalSeconds * 1000,
 	onNewItems: (event) => {
 		const payload = JSON.stringify(event);
 		for (const client of wss.clients) {
@@ -124,12 +125,13 @@ app.get('/api/config', (_req, res) => {
 app.get('/api/intake-config', (_req, res) => {
 	res.json({
 		intakeCriteria: intakeConfig.intakeCriteria,
+		pollIntervalSeconds: intakeConfig.pollIntervalSeconds,
 		version: intakeConfig.version,
 	});
 });
 
 app.post('/api/intake-config', (req, res) => {
-	const { intakeCriteria } = req.body;
+	const { intakeCriteria, pollIntervalSeconds } = req.body;
 
 	if (!intakeCriteria || typeof intakeCriteria !== 'string') {
 		res.status(400).json({ error: 'Invalid intake criteria' });
@@ -139,6 +141,11 @@ app.post('/api/intake-config', (req, res) => {
 	try {
 		// Update in-memory config
 		intakeConfig.intakeCriteria = intakeCriteria;
+
+		if (typeof pollIntervalSeconds === 'number' && pollIntervalSeconds >= 30) {
+			intakeConfig.pollIntervalSeconds = pollIntervalSeconds;
+			poller.setPollInterval(pollIntervalSeconds);
+		}
 
 		// Save to disk
 		saveIntakeConfig(repoConfig, intakeConfig);

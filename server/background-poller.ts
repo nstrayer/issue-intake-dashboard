@@ -5,6 +5,7 @@ import {
 	type IntakeQueueData,
 	DEFAULT_INTAKE_FILTERS,
 } from './github.js';
+import { DEFAULT_POLL_INTERVAL_SECONDS } from './intake-config.js';
 
 export interface NewItemsEvent {
 	type: 'new_items';
@@ -15,7 +16,7 @@ export interface NewItemsEvent {
 
 type NewItemsCallback = (event: NewItemsEvent) => void;
 
-const DEFAULT_POLL_INTERVAL_MS = 90_000; // 90 seconds
+const DEFAULT_POLL_INTERVAL_MS = DEFAULT_POLL_INTERVAL_SECONDS * 1000;
 
 /**
  * Background poller that periodically fetches the intake queue,
@@ -65,6 +66,20 @@ export class BackgroundPoller {
 			clearInterval(this.intervalId);
 			this.intervalId = null;
 			console.log('Background poller stopped');
+		}
+	}
+
+	/**
+	 * Update the poll interval. Restarts the timer if currently running.
+	 */
+	setPollInterval(seconds: number): void {
+		this.pollIntervalMs = seconds * 1000;
+		console.log(`Poll interval updated to ${seconds}s`);
+
+		// Restart with new interval if currently running
+		if (this.intervalId) {
+			this.stop();
+			this.start();
 		}
 	}
 

@@ -6,8 +6,18 @@ interface IntakeConfigModalProps {
   onSave: () => void;
 }
 
+const POLL_INTERVAL_OPTIONS = [
+  { value: 30, label: '30s' },
+  { value: 60, label: '1m' },
+  { value: 90, label: '1.5m' },
+  { value: 120, label: '2m' },
+  { value: 300, label: '5m' },
+  { value: 600, label: '10m' },
+];
+
 export function IntakeConfigModal({ isOpen, onClose, onSave }: IntakeConfigModalProps) {
   const [criteria, setCriteria] = useState('');
+  const [pollIntervalSeconds, setPollIntervalSeconds] = useState(90);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +34,7 @@ export function IntakeConfigModal({ isOpen, onClose, onSave }: IntakeConfigModal
         .then(res => res.json())
         .then(data => {
           setCriteria(data.intakeCriteria || '');
+          setPollIntervalSeconds(data.pollIntervalSeconds || 90);
           setIsLoading(false);
         })
         .catch(() => {
@@ -42,7 +53,7 @@ export function IntakeConfigModal({ isOpen, onClose, onSave }: IntakeConfigModal
       const response = await fetch('/api/intake-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intakeCriteria: criteria }),
+        body: JSON.stringify({ intakeCriteria: criteria, pollIntervalSeconds }),
       });
 
       if (!response.ok) {
@@ -121,6 +132,31 @@ export function IntakeConfigModal({ isOpen, onClose, onSave }: IntakeConfigModal
               />
               <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                 Examples: "Exclude items in 'Done' status", "Only show unlabeled issues", "Exclude backlog project items"
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                Poll for new items every
+              </label>
+              <div className="flex gap-1.5">
+                {POLL_INTERVAL_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPollIntervalSeconds(opt.value)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150"
+                    style={{
+                      background: pollIntervalSeconds === opt.value ? 'var(--accent)' : 'var(--bg-tertiary)',
+                      color: pollIntervalSeconds === opt.value ? 'white' : 'var(--text-secondary)',
+                      border: `1px solid ${pollIntervalSeconds === opt.value ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                How often to check GitHub for new issues and discussions. Sends a desktop notification when new items arrive.
               </p>
             </div>
 
