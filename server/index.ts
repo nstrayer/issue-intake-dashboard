@@ -32,13 +32,15 @@ import {
 	searchDuplicates,
 	fetchRepoMetadata,
 	initGitHub,
+	DEFAULT_INTAKE_FILTERS,
 	type IntakeFilterOptions,
 } from './github.js';
+import { BackgroundPoller } from './background-poller.js';
 import { runSetupChecks } from './setup-check.js';
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, path: '/ws' });
 
 // Initialize repo config at startup
 const repoConfig: RepoConfig = initRepoConfig();
@@ -77,6 +79,19 @@ fetchRepoMetadata().then(meta => {
 		console.log(`Repo description: ${repoDescription}`);
 	}
 }).catch(console.error);
+
+// Background poller for new item notifications
+const poller = new BackgroundPoller({
+	filters: DEFAULT_INTAKE_FILTERS,
+	onNewItems: (event) => {
+		const payload = JSON.stringify(event);
+		for (const client of wss.clients) {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(payload);
+			}
+		}
+	},
+});
 
 app.use(express.json());
 
@@ -163,6 +178,13 @@ app.get('/api/intake', async (req, res) => {
 		};
 
 		const data = await fetchIntakeQueue(filterOptions);
+
+		// Seed the background poller from the first fetch, then start it
+		if (!poller['initialized']) {
+			poller.seedFromData(data);
+			poller.start();
+		}
+
 		res.json(data);
 	} catch (error) {
 		console.error('Failed to fetch intake queue:', error);

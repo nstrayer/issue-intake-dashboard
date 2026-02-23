@@ -14,6 +14,8 @@ import { useConfig } from './hooks/useConfig';
 import { useDemoMode } from './hooks/useDemoMode';
 import { useTour } from './hooks/useTour';
 import { useEnvironmentStatus } from './hooks/useEnvironmentStatus';
+import { useNewItemNotifications } from './hooks/useNewItemNotifications';
+import { NewItemToast } from './components/NewItemToast/NewItemToast';
 import { QueueItem } from './types/intake';
 import { ALL_DEMO_ITEMS } from './data/demoData';
 
@@ -48,6 +50,7 @@ function App() {
   const aiFilter = useAIFilter();
   const { config } = useConfig();
   const envStatus = useEnvironmentStatus();
+  const { notification, dismiss: dismissNotification } = useNewItemNotifications();
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [filters, setFilters] = useState<QueueFilters>(DEFAULT_FILTERS);
   const [filterMode, setFilterMode] = useState<FilterMode>('standard');
@@ -335,6 +338,15 @@ function App() {
         stepIndex={tour.stepIndex}
         onCallback={tour.handleJoyrideCallback}
       />
+
+      {/* New item notification toast */}
+      {notification && (
+        <NewItemToast
+          notification={notification}
+          onDismiss={dismissNotification}
+          onRefresh={queue.refresh}
+        />
+      )}
 
       {/* Error toast */}
       {queue.error && (
