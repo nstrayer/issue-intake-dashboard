@@ -173,16 +173,9 @@ export function ProgressHeader({
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
           {lastUpdated && (
-            <div className="text-right">
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              {pollIntervalSeconds && (
-                <div className="text-[10px]" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
-                  polling every {pollIntervalSeconds >= 60 ? `${pollIntervalSeconds / 60}m` : `${pollIntervalSeconds}s`}
-                </div>
-              )}
-            </div>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
           )}
 
           <div className="h-6 w-px" style={{ background: 'var(--border-subtle)' }} />
@@ -233,23 +226,30 @@ export function ProgressHeader({
             }
           />
 
-          <HeaderButton
-            onClick={onRefresh}
-            disabled={isLoading}
-            label="Refresh"
-            shortcut="R"
-            icon={
-              <svg
-                className={`w-4 h-4 ${isLoading ? 'spinner' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            }
-          />
+          <div className="flex flex-col items-end gap-0.5">
+            <HeaderButton
+              onClick={onRefresh}
+              disabled={isLoading}
+              label="Refresh"
+              shortcut="R"
+              icon={
+                <svg
+                  className={`w-4 h-4 ${isLoading ? 'spinner' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              }
+            />
+            {pollIntervalSeconds && (
+              <span className="text-[10px]" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+                auto-refreshing every {pollIntervalSeconds >= 60 ? `${pollIntervalSeconds / 60}m` : `${pollIntervalSeconds}s`}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </header>
