@@ -177,7 +177,6 @@ app.get('/api/intake', async (req, res) => {
 	try {
 		// Parse filter options from query params (all default to true)
 		const filterOptions: IntakeFilterOptions = {
-			excludeBacklogProject: req.query.excludeBacklogProject !== 'false',
 			excludeMilestoned: req.query.excludeMilestoned !== 'false',
 			excludeTriagedLabels: req.query.excludeTriagedLabels !== 'false',
 			excludeStatusSet: req.query.excludeStatusSet !== 'false',

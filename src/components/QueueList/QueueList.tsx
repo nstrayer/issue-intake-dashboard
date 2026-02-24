@@ -41,10 +41,6 @@ export interface QueueFilters {
 
 // Human-readable labels for intake filter options
 const INTAKE_FILTER_LABELS: Record<keyof IntakeFilterOptions, { label: string; description: string }> = {
-  excludeBacklogProject: {
-    label: 'Hide backlog items',
-    description: 'Items in "Positron Backlog" project',
-  },
   excludeMilestoned: {
     label: 'Hide milestoned',
     description: 'Items assigned to a milestone',
@@ -302,7 +298,7 @@ export function QueueList({
                 Issues
               </span>
               <div className="space-y-1.5 pl-3.5">
-                {(['excludeBacklogProject', 'excludeMilestoned', 'excludeTriagedLabels', 'excludeStatusSet'] as const).map((key) => (
+                {(['excludeMilestoned', 'excludeTriagedLabels', 'excludeStatusSet'] as const).map((key) => (
                   <IntakeFilterToggle
                     key={key}
                     filterKey={key}

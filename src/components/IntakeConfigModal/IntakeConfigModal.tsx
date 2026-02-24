@@ -131,7 +131,7 @@ export function IntakeConfigModal({ isOpen, onClose, onSave }: IntakeConfigModal
                 placeholder="Describe in natural language which items should appear in the intake queue..."
               />
               <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Examples: "Exclude items in 'Done' status", "Only show unlabeled issues", "Exclude backlog project items"
+                Examples: "Exclude items in 'Done' status", "Only show unlabeled issues", "Exclude milestoned items"
               </p>
             </div>
 

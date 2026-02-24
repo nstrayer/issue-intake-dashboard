@@ -21,7 +21,7 @@ const DEFAULT_REPO: RepoConfig = {
 
 // Default intake criteria per repo
 const DEFAULT_INTAKE_CRITERIA: Record<string, string> = {
-	'posit-dev/positron': "Exclude items in 'Positron Backlog' project. Exclude items with Status field set in 'Positron' project.",
+	'posit-dev/positron': "Exclude items with Status field set in 'Positron' project.",
 };
 
 const DEFAULT_GENERIC_CRITERIA = 'Show all open items without filtering by project status.';

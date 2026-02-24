@@ -19,7 +19,6 @@ export interface QueueItem {
 // Intake filter options - mirrors server-side definition
 export interface IntakeFilterOptions {
   // Issues
-  excludeBacklogProject: boolean;  // Exclude items in "Positron Backlog" project
   excludeMilestoned: boolean;      // Exclude items with milestones
   excludeTriagedLabels: boolean;   // Exclude items with duplicate/wontfix/invalid labels
   excludeStatusSet: boolean;       // Exclude items with Status field set in Positron project
@@ -29,7 +28,6 @@ export interface IntakeFilterOptions {
 }
 
 export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
-  excludeBacklogProject: true,
   excludeMilestoned: true,
   excludeTriagedLabels: true,
   excludeStatusSet: true,

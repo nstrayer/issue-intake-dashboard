@@ -44,7 +44,6 @@ export interface IntakeQueueData {
 // Intake filter options - all default to true (filter active)
 export interface IntakeFilterOptions {
   // Issues
-  excludeBacklogProject: boolean;  // Exclude items in backlog project
   excludeMilestoned: boolean;      // Exclude items with milestones
   excludeTriagedLabels: boolean;   // Exclude items with duplicate/wontfix/invalid labels
   excludeStatusSet: boolean;       // Exclude items with Status field set in main project
@@ -55,12 +54,10 @@ export interface IntakeFilterOptions {
 
 // Project configuration for filtering
 export interface ProjectFilterConfig {
-  backlogProjectName?: string;  // e.g., "Positron Backlog"
   mainProjectName?: string;     // e.g., "Positron"
 }
 
 export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
-  excludeBacklogProject: true,
   excludeMilestoned: true,
   excludeTriagedLabels: true,
   excludeStatusSet: true,
@@ -70,7 +67,6 @@ export const DEFAULT_INTAKE_FILTERS: IntakeFilterOptions = {
 
 // Default project config for Positron (backward compatibility)
 const POSITRON_PROJECT_CONFIG: ProjectFilterConfig = {
-  backlogProjectName: 'Positron Backlog',
   mainProjectName: 'Positron',
 };
 
@@ -260,14 +256,6 @@ async function fetchIssuesInIntake(
     // Filter for issues that need intake attention based on filter options
     return issues
       .filter((issue) => {
-        // If in backlog project, it's been taken care of
-        if (filterOptions.excludeBacklogProject && projectConfig.backlogProjectName) {
-          const inBacklogProject = issue.projectItems?.nodes?.some(
-            (item) => item.project?.title === projectConfig.backlogProjectName
-          );
-          if (inBacklogProject) return false;
-        }
-
         // If has milestone, it's been triaged - exclude
         if (filterOptions.excludeMilestoned && issue.milestone) {
           return false;

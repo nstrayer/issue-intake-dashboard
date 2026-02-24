@@ -8,7 +8,6 @@ Your job is to interpret natural language intake criteria and generate structure
 The intake filter determines which issues and discussions appear in the "intake queue" - items that need triage attention.
 
 Available filter options:
-- excludeBacklogProject: boolean - Exclude items in a specific "backlog" project board
 - excludeMilestoned: boolean - Exclude items with milestones assigned
 - excludeTriagedLabels: boolean - Exclude items with labels like "duplicate", "wontfix", "invalid"
 - excludeStatusSet: boolean - Exclude items with a Status field set in the main project board
@@ -16,14 +15,12 @@ Available filter options:
 - excludeMaintainerResponded: boolean - Exclude discussions where maintainers responded but user hasn't followed up
 
 Additionally, you can specify custom project names:
-- backlogProjectName: string - Name of the backlog project to exclude (e.g., "Positron Backlog")
 - mainProjectName: string - Name of the main project for status checking (e.g., "Positron")
 
 Examples:
 - "Show all open items" → All filters set to false
 - "Exclude items in Done column" → excludeStatusSet: true with appropriate project
 - "Only show issues without any triage labels" → excludeTriagedLabels: true
-- "Exclude backlog items" → excludeBacklogProject: true
 
 Respond ONLY with a JSON object containing:
 1. "filterOptions" - the IntakeFilterOptions object
@@ -44,7 +41,6 @@ Respond with a JSON object:
 \`\`\`json
 {
   "filterOptions": {
-    "excludeBacklogProject": true/false,
     "excludeMilestoned": true/false,
     "excludeTriagedLabels": true/false,
     "excludeStatusSet": true/false,
@@ -52,7 +48,6 @@ Respond with a JSON object:
     "excludeMaintainerResponded": true/false
   },
   "projectConfig": {
-    "backlogProjectName": "optional project name",
     "mainProjectName": "optional project name"
   },
   "explanation": "Brief description..."
@@ -63,7 +58,6 @@ Respond with a JSON object:
 export interface IntakeFilterResult {
 	filterOptions: IntakeFilterOptions;
 	projectConfig?: {
-		backlogProjectName?: string;
 		mainProjectName?: string;
 	};
 	explanation: string;

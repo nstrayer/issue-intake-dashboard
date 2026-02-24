@@ -56,7 +56,6 @@ export function createApp(deps: AppDependencies): Express {
   app.get('/api/intake', async (req, res) => {
     try {
       const filterOptions: IntakeFilterOptions = {
-        excludeBacklogProject: req.query.excludeBacklogProject !== 'false',
         excludeMilestoned: req.query.excludeMilestoned !== 'false',
         excludeTriagedLabels: req.query.excludeTriagedLabels !== 'false',
         excludeStatusSet: req.query.excludeStatusSet !== 'false',

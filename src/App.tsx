@@ -29,7 +29,6 @@ const DEFAULT_FILTERS: QueueFilters = {
 
 // All intake filters disabled (show everything)
 const ALL_INTAKE_FILTERS_OFF: IntakeFilterOptions = {
-  excludeBacklogProject: false,
   excludeMilestoned: false,
   excludeTriagedLabels: false,
   excludeStatusSet: false,
