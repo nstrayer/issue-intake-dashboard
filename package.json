@@ -1,6 +1,6 @@
 {
 	"name": "triage-sidekick",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Your AI-in-the-loop sidekick for GitHub issue triage",
 	"type": "module",
 	"bin": {
