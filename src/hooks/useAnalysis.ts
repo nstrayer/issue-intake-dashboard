@@ -78,6 +78,7 @@ export function useAnalysis() {
           ? analysisData.draftResponse
           : prev?.draftResponse,
         isLoading: false,
+        lastAnalysisType: type,
         conversationHistory: prev?.conversationHistory || [],
       }));
     } catch (error) {

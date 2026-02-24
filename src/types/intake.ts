@@ -62,5 +62,6 @@ export interface ClaudeAnalysis {
 	draftResponse?: string;
 	isLoading: boolean;
 	error?: string;
+	lastAnalysisType?: 'full' | 'duplicates' | 'labels' | 'response';
 	conversationHistory?: FollowUpMessage[];
 }

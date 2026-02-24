@@ -85,12 +85,13 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
     );
   }
 
-  // Check if we have any analysis results to show
+  // Check if we have any analysis results to show (including "no results" for completed searches)
   const hasAnalysisResults = analysis && !analysis.isLoading && !analysis.error && (
     analysis.summary ||
     analysis.suggestedLabels.length > 0 ||
     analysis.duplicates.length > 0 ||
-    analysis.draftResponse
+    analysis.draftResponse ||
+    analysis.lastAnalysisType
   );
 
   return (
@@ -260,7 +261,7 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
                 )}
 
                 {/* Duplicates */}
-                {analysis.duplicates.length > 0 && (
+                {analysis.duplicates.length > 0 ? (
                   <div>
                     <SubsectionTitle>Potential Duplicates</SubsectionTitle>
                     <div className="space-y-2">
@@ -302,6 +303,13 @@ export function SidePanel({ item, analysis, onClose, onApplyLabel, onRemoveLabel
                         </a>
                       ))}
                     </div>
+                  </div>
+                ) : (analysis.lastAnalysisType === 'duplicates' || analysis.lastAnalysisType === 'full') && (
+                  <div>
+                    <SubsectionTitle>Potential Duplicates</SubsectionTitle>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      No potential duplicates found.
+                    </p>
                   </div>
                 )}
 
