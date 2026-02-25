@@ -1,4 +1,3 @@
-import { execSync } from 'child_process';
 import {
 	fetchIntakeQueue,
 	type IntakeFilterOptions,
@@ -117,9 +116,6 @@ export class BackgroundPoller {
 					timestamp: new Date().toISOString(),
 				};
 
-				// Send OS notification
-				sendOSNotification(newIssues.length, newDiscussions.length);
-
 				// Notify callback (for WebSocket broadcast)
 				this.onNewItems(event);
 			}
@@ -131,36 +127,3 @@ export class BackgroundPoller {
 	}
 }
 
-/**
- * Send a native OS notification. Uses osascript on macOS,
- * notify-send on Linux. Silently fails on unsupported platforms.
- */
-function sendOSNotification(
-	issueCount: number,
-	discussionCount: number
-): void {
-	const parts: string[] = [];
-	if (issueCount > 0) {
-		parts.push(`${issueCount} new issue${issueCount > 1 ? 's' : ''}`);
-	}
-	if (discussionCount > 0) {
-		parts.push(
-			`${discussionCount} new discussion${discussionCount > 1 ? 's' : ''}`
-		);
-	}
-	const body = parts.join(' and ');
-	const title = 'Triage Sidekick';
-
-	try {
-		if (process.platform === 'darwin') {
-			execSync(
-				`osascript -e 'display notification "${body}" with title "${title}"'`
-			);
-		} else if (process.platform === 'linux') {
-			execSync(`notify-send "${title}" "${body}"`);
-		}
-		// Windows: could use PowerShell toast, but skipping for now
-	} catch {
-		// Notification is best-effort; don't crash on failure
-	}
-}

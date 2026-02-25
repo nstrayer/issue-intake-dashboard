@@ -43,6 +43,13 @@ export function useNewItemNotifications(onNewItems?: () => void) {
 		setNotification(null);
 	}, []);
 
+	// Request browser notification permission on mount
+	useEffect(() => {
+		if ('Notification' in window && Notification.permission === 'default') {
+			Notification.requestPermission();
+		}
+	}, []);
+
 	useEffect(() => {
 		function connect() {
 			const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -74,6 +81,7 @@ export function useNewItemNotifications(onNewItems?: () => void) {
 
 					if (items.length > 0) {
 						setNotification({ items, timestamp: new Date(msg.timestamp) });
+						sendBrowserNotification(items);
 						onNewItems?.();
 					}
 				} catch {
@@ -100,4 +108,26 @@ export function useNewItemNotifications(onNewItems?: () => void) {
 	}, [onNewItems]);
 
 	return { notification, dismiss };
+}
+
+function sendBrowserNotification(items: NewItemSummary[]): void {
+	if (!('Notification' in window) || Notification.permission !== 'granted') {
+		return;
+	}
+
+	const parts: string[] = [];
+	const issueCount = items.filter((i) => i.type === 'issue').length;
+	const discussionCount = items.filter((i) => i.type === 'discussion').length;
+	if (issueCount > 0) {
+		parts.push(`${issueCount} new issue${issueCount > 1 ? 's' : ''}`);
+	}
+	if (discussionCount > 0) {
+		parts.push(`${discussionCount} new discussion${discussionCount > 1 ? 's' : ''}`);
+	}
+
+	const n = new Notification('Triage Sidekick', { body: parts.join(' and ') });
+	n.onclick = () => {
+		window.focus();
+		n.close();
+	};
 }
