@@ -1,11 +1,67 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ClaudeAnalysis, QueueItem, FollowUpMessage } from '../types/intake';
 
 export type AnalysisType = 'full' | 'duplicates' | 'labels' | 'response';
 
+function getAnalysisLabel(type: AnalysisType): string {
+  switch (type) {
+    case 'full': return 'Full analysis';
+    case 'duplicates': return 'Duplicate search';
+    case 'labels': return 'Label suggestion';
+    case 'response': return 'Response draft';
+  }
+}
+
+function playNotificationSound(): void {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    // Two-tone chime
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    osc.onended = () => ctx.close();
+  } catch {
+    // Audio not available
+  }
+}
+
+function notifyAnalysisComplete(success: boolean, type: AnalysisType): void {
+  playNotificationSound();
+
+  // Only show browser notification if tab is not focused
+  if (!document.hidden) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const body = success
+    ? `${getAnalysisLabel(type)} complete`
+    : `${getAnalysisLabel(type)} failed`;
+
+  const n = new Notification('Triage Sidekick', { body });
+  n.onclick = () => {
+    window.focus();
+    n.close();
+  };
+}
+
 export function useAnalysis() {
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const analyzeItem = useCallback(async (item: QueueItem, body: string, type: AnalysisType = 'full') => {
     // For individual analysis types, preserve existing results
@@ -81,6 +137,7 @@ export function useAnalysis() {
         lastAnalysisType: type,
         conversationHistory: prev?.conversationHistory || [],
       }));
+      notifyAnalysisComplete(true, type);
     } catch (error) {
       setAnalysis(prev => ({
         suggestedLabels: prev?.suggestedLabels || [],
@@ -91,6 +148,7 @@ export function useAnalysis() {
         error: error instanceof Error ? error.message : 'Analysis failed',
         conversationHistory: prev?.conversationHistory || [],
       }));
+      notifyAnalysisComplete(false, type);
     }
   }, []);
 
