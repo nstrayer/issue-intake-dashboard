@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ToolStatus } from '../../hooks/useEnvironmentStatus';
 
 interface ProgressHeaderProps {
@@ -245,20 +246,70 @@ export function ProgressHeader({
           />
 
           {pollIntervalSeconds && (
-            <span
-              className="text-[10px] px-2 py-1 rounded-md"
-              style={{
-                color: 'var(--text-muted)',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              every {pollIntervalSeconds >= 60 ? `${pollIntervalSeconds / 60}m` : `${pollIntervalSeconds}s`}
-            </span>
+            <RefreshPill
+              pollIntervalSeconds={pollIntervalSeconds}
+              lastUpdated={lastUpdated}
+            />
           )}
         </div>
       </div>
     </header>
+  );
+}
+
+function RefreshPill({
+  pollIntervalSeconds,
+  lastUpdated,
+}: {
+  pollIntervalSeconds: number;
+  lastUpdated: Date | null;
+}) {
+  const [timeAgo, setTimeAgo] = useState('');
+
+  useEffect(() => {
+    if (!lastUpdated) return;
+
+    const update = () => {
+      const seconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+      if (seconds < 5) {
+        setTimeAgo('just now');
+      } else if (seconds < 60) {
+        setTimeAgo(`${seconds}s ago`);
+      } else {
+        const minutes = Math.floor(seconds / 60);
+        setTimeAgo(`${minutes}m ago`);
+      }
+    };
+
+    update();
+    const interval = setInterval(update, 5000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  const intervalLabel = pollIntervalSeconds >= 60
+    ? `every ${pollIntervalSeconds / 60}m`
+    : `every ${pollIntervalSeconds}s`;
+
+  return (
+    <span
+      className="text-[10px] px-2 py-1 rounded-md"
+      style={{
+        color: 'var(--text-muted)',
+        background: 'var(--bg-tertiary)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      {intervalLabel}
+      {timeAgo && (
+        <>
+          <span
+            className="mx-1.5 inline-block w-px h-2.5 align-middle"
+            style={{ background: 'var(--border-subtle)' }}
+          />
+          {timeAgo}
+        </>
+      )}
+    </span>
   );
 }
 
