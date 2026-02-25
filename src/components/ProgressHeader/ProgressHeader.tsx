@@ -292,22 +292,16 @@ function RefreshPill({
 
   return (
     <span
-      className="text-[10px] px-2 py-1 rounded-md"
+      className="text-[10px] px-2 py-1 rounded-md flex flex-col items-center leading-tight"
       style={{
         color: 'var(--text-muted)',
         background: 'var(--bg-tertiary)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      {intervalLabel}
+      <span>{intervalLabel}</span>
       {timeAgo && (
-        <>
-          <span
-            className="mx-1.5 inline-block w-px h-2.5 align-middle"
-            style={{ background: 'var(--border-subtle)' }}
-          />
-          {timeAgo}
-        </>
+        <span style={{ color: 'var(--text-muted)', opacity: 0.7 }}>{timeAgo}</span>
       )}
     </span>
   );
