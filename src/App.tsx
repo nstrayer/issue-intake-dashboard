@@ -156,6 +156,24 @@ function App() {
     }
   };
 
+  // Refresh when returning to tab if data is stale
+  useEffect(() => {
+    if (!config?.pollIntervalSeconds) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!queue.fetchedAt || queue.isLoading) return;
+
+      const elapsed = (Date.now() - queue.fetchedAt.getTime()) / 1000;
+      if (elapsed >= config.pollIntervalSeconds) {
+        queue.refresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [config?.pollIntervalSeconds, queue.fetchedAt, queue.isLoading, queue.refresh]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
